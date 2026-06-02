@@ -1,0 +1,319 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}Divisor de PDFs — Divida seus PDFs em partes menores{% endblock %}
+
+{% block content %}
+<header class="header">
+    <div class="header-content">
+        <div class="logo">
+            <svg class="logo-icon" viewBox="0 0 40 40" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <rect x="2" y="2" width="36" height="36" rx="8" stroke="url(#logo-grad)" stroke-width="2.5" fill="none"/>
+                <path d="M12 12h16v4H12zM12 20h10v4H12zM12 28h14v4H12z" fill="url(#logo-grad)" opacity="0.8"/>
+                <line x1="24" y1="16" x2="24" y2="36" stroke="#06B6D4" stroke-width="2" stroke-dasharray="3 3"/>
+                <defs>
+                    <linearGradient id="logo-grad" x1="0" y1="0" x2="40" y2="40">
+                        <stop offset="0%" stop-color="#7C3AED"/>
+                        <stop offset="100%" stop-color="#06B6D4"/>
+                    </linearGradient>
+                </defs>
+            </svg>
+            <h1 class="logo-text">Divisor<span class="logo-accent">PDF</span></h1>
+        </div>
+        <p class="header-subtitle">Divida PDFs grandes em partes menores, de forma rápida e segura.</p>
+    </div>
+</header>
+
+<main class="main-content">
+    <!-- Upload Section -->
+    <section id="upload-section" class="card card-upload">
+        <div class="card-header">
+            <div class="card-icon">
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+                    <polyline points="17 8 12 3 7 8"/>
+                    <line x1="12" y1="3" x2="12" y2="15"/>
+                </svg>
+            </div>
+            <h2>Upload de PDFs</h2>
+        </div>
+
+        <form id="upload-form" enctype="multipart/form-data">
+            {% csrf_token %}
+
+            <!-- Drop Zone -->
+            <div id="drop-zone" class="drop-zone" tabindex="0" role="button" aria-label="Área de upload de arquivos PDF">
+                <div class="drop-zone-content">
+                    <div class="drop-zone-icon">
+                        <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+                            <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+                            <polyline points="14 2 14 8 20 8"/>
+                            <line x1="12" y1="18" x2="12" y2="12"/>
+                            <line x1="9" y1="15" x2="12" y2="12"/>
+                            <line x1="15" y1="15" x2="12" y2="12"/>
+                        </svg>
+                    </div>
+                    <p class="drop-zone-text">
+                        <strong>Arraste seus PDFs aqui</strong>
+                        <span>ou clique para selecionar</span>
+                    </p>
+                    <p class="drop-zone-hint">
+                        Máx. {{ max_upload_size_mb }} MB por arquivo · Total {{ max_total_upload_mb }} MB
+                    </p>
+                </div>
+                <input
+                    type="file"
+                    id="file-input"
+                    name="files"
+                    accept=".pdf,application/pdf"
+                    multiple
+                    class="file-input-hidden"
+                    aria-hidden="true"
+                >
+            </div>
+
+            <!-- File List -->
+            <div id="file-list" class="file-list" style="display: none;">
+                <div class="file-list-header">
+                    <h3>Arquivos selecionados</h3>
+                    <button type="button" id="clear-files-btn" class="btn-text" aria-label="Remover todos os arquivos">
+                        Limpar tudo
+                    </button>
+                </div>
+                <ul id="file-items" class="file-items"></ul>
+                <div class="file-list-summary">
+                    <span id="file-count">0 arquivos</span>
+                    <span id="file-total-size">0 MB</span>
+                </div>
+            </div>
+
+            <!-- Compression Control (Ghostscript) -->
+            <div id="compress-control" class="compress-control" style="display: none;">
+                <label class="size-label">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M4 14h6v6H4zm10 0h6v6h-6zM4 4h6v6H4zm10 0h6v6h-6z"/>
+                    </svg>
+                    Nível de Compressão (Ghostscript)
+                </label>
+                <div class="compress-options">
+                    <label class="compress-opt-card active">
+                        <input type="radio" name="compress_level" value="none" checked class="compress-radio-hidden">
+                        <div class="compress-opt-content">
+                            <span class="compress-opt-title">Nenhuma</span>
+                            <span class="compress-opt-desc">Mantém qualidade original</span>
+                            <span class="compress-opt-est" id="est-size-none">Original</span>
+                        </div>
+                    </label>
+                    <label class="compress-opt-card">
+                        <input type="radio" name="compress_level" value="low" class="compress-radio-hidden">
+                        <div class="compress-opt-content">
+                            <span class="compress-opt-title">Alta Qualidade</span>
+                            <span class="compress-opt-desc">Baixa compressão (300 DPI)</span>
+                            <span class="compress-opt-est" id="est-size-low">~80% do tamanho</span>
+                        </div>
+                    </label>
+                    <label class="compress-opt-card">
+                        <input type="radio" name="compress_level" value="medium" class="compress-radio-hidden">
+                        <div class="compress-opt-content">
+                            <span class="compress-opt-title">Média Qualidade</span>
+                            <span class="compress-opt-desc">Equilibrado (150 DPI)</span>
+                            <span class="compress-opt-est" id="est-size-medium">~50% do tamanho</span>
+                        </div>
+                    </label>
+                    <label class="compress-opt-card">
+                        <input type="radio" name="compress_level" value="high" class="compress-radio-hidden">
+                        <div class="compress-opt-content">
+                            <span class="compress-opt-title">Alta Compressão</span>
+                            <span class="compress-opt-desc">Menor qualidade (72 DPI)</span>
+                            <span class="compress-opt-est" id="est-size-high">~20% do tamanho</span>
+                        </div>
+                    </label>
+                </div>
+            </div>
+
+            <!-- Action Switch (Split or just Compress) -->
+            <div id="action-switch-control" class="action-switch-control" style="display: none;">
+                <label class="switch-container">
+                    <input type="checkbox" id="should-split-checkbox" name="should_split" checked>
+                    <span class="switch-slider"></span>
+                    <span class="switch-label-text">Dividir PDFs em partes menores após processamento</span>
+                </label>
+            </div>
+
+            <!-- Max Size Input -->
+            <div id="size-control" class="size-control" style="display: none;">
+                <label for="max-size-input" class="size-label">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <circle cx="12" cy="12" r="3"/>
+                        <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06c.5.5 1.2.68 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/>
+                    </svg>
+                    Tamanho máximo por arquivo
+                </label>
+                <div class="size-input-group">
+                    <input
+                        type="range"
+                        id="max-size-slider"
+                        min="0.5"
+                        max="100"
+                        step="0.5"
+                        value="10"
+                        class="size-slider"
+                        aria-label="Slider de tamanho máximo"
+                    >
+                    <div class="size-number-group">
+                        <input
+                            type="number"
+                            id="max-size-input"
+                            name="max_size_mb"
+                            min="0.1"
+                            max="500"
+                            step="0.1"
+                            value="10"
+                            class="size-number-input"
+                            required
+                        >
+                        <span class="size-unit">MB</span>
+                    </div>
+                </div>
+                <p class="size-hint" id="size-hint">
+                    Cada PDF resultante terá no máximo <strong>10 MB</strong>
+                </p>
+            </div>
+
+            <!-- Submit Button -->
+            <button type="submit" id="submit-btn" class="btn btn-primary" style="display: none;" disabled>
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/>
+                </svg>
+                <span>Dividir PDFs</span>
+            </button>
+        </form>
+    </section>
+
+    <!-- Processing Section -->
+    <section id="processing-section" class="card card-processing" style="display: none;">
+        <div class="card-header">
+            <div class="card-icon card-icon-processing">
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <line x1="12" y1="2" x2="12" y2="6"/>
+                    <line x1="12" y1="18" x2="12" y2="22"/>
+                    <line x1="4.93" y1="4.93" x2="7.76" y2="7.76"/>
+                    <line x1="16.24" y1="16.24" x2="19.07" y2="19.07"/>
+                    <line x1="2" y1="12" x2="6" y2="12"/>
+                    <line x1="18" y1="12" x2="22" y2="12"/>
+                    <line x1="4.93" y1="19.07" x2="7.76" y2="16.24"/>
+                    <line x1="16.24" y1="7.76" x2="19.07" y2="4.93"/>
+                </svg>
+            </div>
+            <h2 id="processing-title">Enviando...</h2>
+        </div>
+
+        <!-- Fase 1: Envio dos Arquivos -->
+        <div id="upload-progress-container" class="progress-container">
+            <span class="progress-label">Fase 1: Enviando arquivos para o servidor</span>
+            <div class="progress-bar">
+                <div id="upload-progress-fill" class="progress-fill upload-fill" style="width: 0%"></div>
+            </div>
+            <div class="progress-info">
+                <span id="upload-progress-text">Preparando envio...</span>
+                <span id="upload-progress-percent">0%</span>
+            </div>
+        </div>
+
+        <!-- Fase 2: Processamento no Servidor -->
+        <div id="processing-progress-container" class="progress-container" style="display: none; margin-top: var(--space-lg);">
+            <span class="progress-label">Fase 2: Processando no servidor</span>
+            <div class="progress-bar">
+                <div id="progress-fill" class="progress-fill" style="width: 0%"></div>
+            </div>
+            <div class="progress-info">
+                <span id="progress-text">Aguardando início...</span>
+                <span id="progress-percent">0%</span>
+            </div>
+        </div>
+    </section>
+
+    <!-- Result Section -->
+    <section id="result-section" class="card card-result" style="display: none;">
+        <div class="card-header">
+            <div class="card-icon card-icon-success">
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/>
+                    <polyline points="22 4 12 14.01 9 11.01"/>
+                </svg>
+            </div>
+            <h2>Divisão Concluída!</h2>
+        </div>
+
+        <div class="result-stats">
+            <div class="stat">
+                <span class="stat-value" id="result-files">—</span>
+                <span class="stat-label">Arquivos gerados</span>
+            </div>
+            <div class="stat">
+                <span class="stat-value" id="result-size">—</span>
+                <span class="stat-label">Tamanho do ZIP</span>
+            </div>
+        </div>
+
+        <a id="download-btn" href="#" class="btn btn-download">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+                <polyline points="7 10 12 15 17 10"/>
+                <line x1="12" y1="15" x2="12" y2="3"/>
+            </svg>
+            <span>Baixar ZIP</span>
+        </a>
+
+        <button type="button" id="new-split-btn" class="btn btn-secondary">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <polyline points="1 4 1 10 7 10"/>
+                <path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10"/>
+            </svg>
+            <span>Nova divisão</span>
+        </button>
+
+        <p class="result-warning">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <circle cx="12" cy="12" r="10"/>
+                <line x1="12" y1="8" x2="12" y2="12"/>
+                <line x1="12" y1="16" x2="12.01" y2="16"/>
+            </svg>
+            Os arquivos serão removidos automaticamente após 1 hora.
+        </p>
+    </section>
+
+    <!-- Error Section -->
+    <section id="error-section" class="card card-error" style="display: none;">
+        <div class="card-header">
+            <div class="card-icon card-icon-error">
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <circle cx="12" cy="12" r="10"/>
+                    <line x1="15" y1="9" x2="9" y2="15"/>
+                    <line x1="9" y1="9" x2="15" y2="15"/>
+                </svg>
+            </div>
+            <h2>Erro no Processamento</h2>
+        </div>
+        <p id="error-message" class="error-message"></p>
+        <button type="button" id="retry-btn" class="btn btn-secondary">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <polyline points="1 4 1 10 7 10"/>
+                <path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10"/>
+            </svg>
+            <span>Tentar novamente</span>
+        </button>
+    </section>
+</main>
+
+<footer class="footer">
+    <p>&copy; 2026 DivisorPDF. Seus arquivos são processados com segurança e removidos automaticamente.</p>
+</footer>
+
+<!-- Toast container for notifications -->
+<div id="toast-container" class="toast-container"></div>
+{% endblock %}
+
+{% block extra_js %}
+<script src="{% static 'js/app.js' %}"></script>
+{% endblock %}

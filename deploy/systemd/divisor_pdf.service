@@ -1,0 +1,18 @@
+[Unit]
+Description=Gunicorn daemon for Divisor PDF Django Web App
+After=network.target
+
+[Service]
+User=rodrigostolben
+Group=www-data
+WorkingDirectory=/home/rodrigostolben/Projetos/divisor_pdf
+EnvironmentFile=/home/rodrigostolben/Projetos/divisor_pdf/.env
+ExecStart=/home/rodrigostolben/Projetos/divisor_pdf/venv/bin/gunicorn \
+          --config /home/rodrigostolben/Projetos/divisor_pdf/deploy/gunicorn.conf.py \
+          config.wsgi:application
+
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target

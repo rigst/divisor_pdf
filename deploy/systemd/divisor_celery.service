@@ -1,0 +1,18 @@
+[Unit]
+Description=Celery Worker and Beat Daemon for Divisor PDF
+After=network.target redis-server.service
+
+[Service]
+User=rodrigostolben
+Group=www-data
+WorkingDirectory=/home/rodrigostolben/Projetos/divisor_pdf
+EnvironmentFile=/home/rodrigostolben/Projetos/divisor_pdf/.env
+# Inicia worker e beat integrados na mesma máquina. 
+# Para maior concorrência em produção de grande escala, podem ser separados em serviços distintos.
+ExecStart=/home/rodrigostolben/Projetos/divisor_pdf/venv/bin/celery -A config worker --beat -l info
+
+Restart=always
+RestartSec=10
+
+[Install]
+WantedBy=multi-user.target
