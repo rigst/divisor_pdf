@@ -8,6 +8,7 @@ import logging
 from pathlib import Path
 
 from django.conf import settings
+from django.db import models
 from django.utils.text import get_valid_filename
 from django.http import (
     FileResponse,
@@ -179,6 +180,27 @@ def upload(request):
         request.session.create()
 
     session_key = request.session.session_key
+
+    active_session_usage_mb = SplitJob.objects.filter(
+        session_key=session_key,
+        cleaned_up=False,
+    ).exclude(
+        status=SplitJob.Status.FAILED
+    ).aggregate(
+        total=models.Sum('total_input_size_mb')
+    )['total'] or 0
+    projected_total_mb = active_session_usage_mb + (total_size / (1024 * 1024))
+    if projected_total_mb > settings.MAX_TOTAL_UPLOAD_MB:
+        return JsonResponse(
+            {
+                'error': (
+                    f'O uso acumulado desta sessão ({projected_total_mb:.1f} MB) excede '
+                    f'o limite de {settings.MAX_TOTAL_UPLOAD_MB} MB. Aguarde a limpeza '
+                    'automática dos arquivos antigos ou inicie uma nova sessão.'
+                )
+            },
+            status=400
+        )
 
     try:
         # Criar o SplitJob

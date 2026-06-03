@@ -48,6 +48,8 @@ def process_split_job(self, job_id: int):
     try:
         input_dir = job.input_dir
         output_dir = job.output_dir
+        if output_dir.exists():
+            shutil.rmtree(str(output_dir))
         output_dir.mkdir(parents=True, exist_ok=True)
 
         input_files = sorted(input_dir.glob('*.pdf'))
@@ -250,14 +252,24 @@ def process_split_job(self, job_id: int):
 
     except Exception as exc:
         logger.exception(f'Erro fatal ao processar SplitJob #{job_id}')
-        job.status = SplitJob.Status.FAILED
-        job.error_message = str(exc)
         job.processing_warnings = processing_warnings
-        job.save(update_fields=['status', 'error_message', 'processing_warnings'])
 
         # Em modo eager, não tenta retry (que dependeria de backend de resultados)
         if getattr(settings, 'CELERY_TASK_ALWAYS_EAGER', False):
+            job.status = SplitJob.Status.FAILED
+            job.error_message = str(exc)
+            job.save(update_fields=['status', 'error_message', 'processing_warnings'])
             return  # Job já marcado como FAILED, a view tratará o status
+
+        if self.request.retries >= self.max_retries:
+            job.status = SplitJob.Status.FAILED
+            job.error_message = str(exc)
+            job.save(update_fields=['status', 'error_message', 'processing_warnings'])
+        else:
+            job.status = SplitJob.Status.PROCESSING
+            job.error_message = ''
+            job.save(update_fields=['status', 'error_message', 'processing_warnings'])
+
         # Em produção, permite retrying via Celery
         raise self.retry(exc=exc, countdown=30)
 

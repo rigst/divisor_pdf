@@ -8,13 +8,29 @@ from .base import *  # noqa: F401, F403
 
 DEBUG = False
 
+
+def _required_env(name):
+    value = os.getenv(name)
+    if not value:
+        raise RuntimeError(f'A variável de ambiente {name} é obrigatória em produção.')
+    return value
+
+
+SECRET_KEY = _required_env('SECRET_KEY')
+if SECRET_KEY.startswith('django-insecure-'):
+    raise RuntimeError('SECRET_KEY de produção não pode usar valor django-insecure.')
+
+ALLOWED_HOSTS = [
+    h.strip() for h in _required_env('ALLOWED_HOSTS').split(',') if h.strip()
+]
+
 # Database — PostgreSQL
 DATABASES = {
     'default': {
         'ENGINE': 'django.db.backends.postgresql',
-        'NAME': os.getenv('DB_NAME', 'divisor_pdf'),
-        'USER': os.getenv('DB_USER', 'divisor_pdf'),
-        'PASSWORD': os.getenv('DB_PASSWORD', ''),
+        'NAME': _required_env('DB_NAME'),
+        'USER': _required_env('DB_USER'),
+        'PASSWORD': _required_env('DB_PASSWORD'),
         'HOST': os.getenv('DB_HOST', 'localhost'),
         'PORT': os.getenv('DB_PORT', '5432'),
         'CONN_MAX_AGE': 600,

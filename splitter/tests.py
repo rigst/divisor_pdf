@@ -324,6 +324,36 @@ class PDFViewsTestCase(TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.json()['warnings'], warnings)
 
+    @override_settings(MAX_TOTAL_UPLOAD_MB=1, MAX_TOTAL_UPLOAD_SIZE=1024 * 1024)
+    def test_upload_rejects_accumulated_session_quota(self):
+        """Valida limite acumulado por sessão considerando jobs ativos anteriores."""
+        session_key = self.client.session.session_key
+        SplitJob.objects.create(
+            session_key=session_key,
+            original_filenames=['old.pdf'],
+            total_input_size_mb=0.9999,
+            compress_level='none',
+            should_split=True,
+            max_size_mb=1.0,
+            status=SplitJob.Status.COMPLETED,
+            cleaned_up=False
+        )
+
+        pdf_file = SimpleUploadedFile(
+            name='new.pdf',
+            content=self.pdf_bytes,
+            content_type='application/pdf'
+        )
+        response = self.client.post('/api/upload/', {
+            'files': [pdf_file],
+            'compress_level': 'none',
+            'should_split': 'true',
+            'max_size_mb': '1.0'
+        })
+
+        self.assertEqual(response.status_code, 400)
+        self.assertIn('uso acumulado', response.json()['error'])
+
 
 @override_settings(MEDIA_ROOT=TEMP_MEDIA_ROOT)
 class PDFCeleryTasksTestCase(TestCase):
@@ -352,6 +382,10 @@ class PDFCeleryTasksTestCase(TestCase):
 
     def test_task_process_split_job_happy_path(self):
         """Valida que a execução síncrona da task processa, divide, cria o ZIP e limpa input."""
+        stale_output = self.job.output_dir / 'stale.pdf'
+        stale_output.parent.mkdir(parents=True, exist_ok=True)
+        stale_output.write_bytes(b'%PDF-stale')
+
         result = process_split_job.apply(args=[self.job.pk])
         self.assertTrue(result.successful())
 
@@ -365,6 +399,7 @@ class PDFCeleryTasksTestCase(TestCase):
         zip_path = os.path.join(TEMP_MEDIA_ROOT, 'sessions', self.session_key, 'output', str(self.job.pk), 'resultado.zip')
         self.assertTrue(os.path.exists(zip_path))
         self.assertFalse(self.job.input_dir.exists())
+        self.assertFalse(stale_output.exists())
 
     def test_task_cleanup_expired_sessions(self):
         """Valida que a task periódica remove arquivos com mais de 1 hora de vida do disco."""

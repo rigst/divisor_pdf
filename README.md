@@ -38,7 +38,7 @@ ALLOWED_HOSTS=seudominio.com,127.0.0.1
 REDIS_URL=redis://localhost:6379/0
 DB_NAME=divisor_pdf
 DB_USER=divisor_pdf
-DB_PASSWORD=
+DB_PASSWORD=senha-segura
 DB_HOST=localhost
 DB_PORT=5432
 MAX_UPLOAD_SIZE_MB=500
@@ -62,6 +62,8 @@ Os arquivos em `deploy/` trazem exemplos de Gunicorn, Nginx e systemd. Antes de 
 
 - Ajuste caminhos absolutos para o servidor.
 - Defina `DJANGO_SETTINGS_MODULE=config.settings.production` no `.env`.
+- Defina `SECRET_KEY`, `ALLOWED_HOSTS`, `DB_NAME`, `DB_USER` e `DB_PASSWORD`; em producao, a aplicacao falha ao iniciar sem esses valores.
+- Ajuste `client_max_body_size` no Nginx para acompanhar `MAX_TOTAL_UPLOAD_MB`.
 - Rode `collectstatic` e `migrate`.
 - Nao exponha `/media/` diretamente pelo Nginx; downloads devem passar pela view Django para validar sessao e status do job.
 
