@@ -303,6 +303,27 @@ class PDFViewsTestCase(TestCase):
         self.assertEqual(response.status_code, 404)
         self.assertIn('removido', response.content.decode('utf-8'))
 
+    def test_status_returns_processing_warnings(self):
+        """Valida que avisos salvos no job são enviados ao frontend."""
+        session_key = self.client.session.session_key
+        warnings = ['Uma página individual excedeu o limite solicitado.']
+        job = SplitJob.objects.create(
+            session_key=session_key,
+            original_filenames=['doc.pdf'],
+            compress_level='none',
+            should_split=True,
+            max_size_mb=2.0,
+            status=SplitJob.Status.COMPLETED,
+            total_output_files=1,
+            total_output_size_mb=2.1,
+            output_zip_path='/tmp/fake.pdf',
+            processing_warnings=warnings
+        )
+
+        response = self.client.get(f'/api/status/{job.pk}/')
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.json()['warnings'], warnings)
+
 
 @override_settings(MEDIA_ROOT=TEMP_MEDIA_ROOT)
 class PDFCeleryTasksTestCase(TestCase):
@@ -436,6 +457,7 @@ class PDFCeleryTasksTestCase(TestCase):
         input_dir.mkdir(parents=True, exist_ok=True)
         pdf_path = input_dir / 'doc_original.pdf'
         pdf_path.write_bytes(self.pdf_bytes)
+        compressed_pdf_bytes = create_dummy_pdf(num_pages=1)
 
         # Mock Ghostscript output para a compressão inicial e para a compressão intermediária no splitter
         def fake_gs_effect(*args, **kwargs):
@@ -443,7 +465,7 @@ class PDFCeleryTasksTestCase(TestCase):
             out_arg = [arg for arg in args[0] if arg.startswith('-sOutputFile=')][0]
             out_file = Path(out_arg.split('=')[1])
             out_file.parent.mkdir(parents=True, exist_ok=True)
-            out_file.write_bytes(self.pdf_bytes)  # Grava bytes válidos
+            out_file.write_bytes(compressed_pdf_bytes)  # Grava PDF válido menor que o original
             return mock_run.return_value
 
         mock_run.side_effect = fake_gs_effect
@@ -489,6 +511,41 @@ class PDFCeleryTasksTestCase(TestCase):
             2_000_000,
             compress_level=SplitJob.CompressLevel.NONE
         )
+
+    @patch('subprocess.run')
+    def test_task_warns_when_compression_does_not_reduce_file(self, mock_run):
+        """Se Ghostscript não reduzir o PDF, mantém original e avisa o usuário."""
+        mock_run.return_value = MagicMock(returncode=0)
+
+        no_reduction_job = SplitJob.objects.create(
+            session_key='test_no_reduction_session',
+            original_filenames=['same_size.pdf'],
+            compress_level=SplitJob.CompressLevel.MEDIUM,
+            should_split=False
+        )
+
+        input_dir = no_reduction_job.input_dir
+        input_dir.mkdir(parents=True, exist_ok=True)
+        pdf_path = input_dir / 'same_size.pdf'
+        pdf_path.write_bytes(self.pdf_bytes)
+
+        def fake_gs_effect(*args, **kwargs):
+            out_arg = [arg for arg in args[0] if arg.startswith('-sOutputFile=')][0]
+            out_file = Path(out_arg.split('=')[1])
+            out_file.parent.mkdir(parents=True, exist_ok=True)
+            out_file.write_bytes(self.pdf_bytes)
+            return mock_run.return_value
+
+        mock_run.side_effect = fake_gs_effect
+
+        result = process_split_job.apply(args=[no_reduction_job.pk])
+        self.assertTrue(result.successful())
+
+        no_reduction_job.refresh_from_db()
+        self.assertEqual(no_reduction_job.status, SplitJob.Status.COMPLETED)
+        self.assertTrue(no_reduction_job.processing_warnings)
+        self.assertIn('Não foi possível reduzir', no_reduction_job.processing_warnings[0])
+        self.assertEqual(Path(no_reduction_job.output_zip_path).name, 'same_size.pdf')
 
     @patch('subprocess.run')
     def test_download_single_pdf_view(self, mock_run):

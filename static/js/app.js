@@ -54,6 +54,8 @@ document.addEventListener('DOMContentLoaded', () => {
     const resultSize = document.getElementById('result-size');
     const downloadBtn = document.getElementById('download-btn');
     const newSplitBtn = document.getElementById('new-split-btn');
+    const resultWarnings = document.getElementById('result-warnings');
+    const resultWarningsList = document.getElementById('result-warnings-list');
 
     // Error UI
     const errorSection = document.getElementById('error-section');
@@ -543,6 +545,7 @@ document.addEventListener('DOMContentLoaded', () => {
         resultFiles.textContent = data.total_output_files;
         resultSize.textContent = `${data.zip_size_mb.toFixed(2)} MB`;
         downloadBtn.href = data.download_url;
+        renderWarnings(data.warnings || []);
 
         // Atualizar rótulos e botão dinamicamente para arquivo único vs múltiplos
         const isSingleFile = data.total_output_files === 1;
@@ -580,6 +583,23 @@ document.addEventListener('DOMContentLoaded', () => {
         }, 500);
     }
 
+    function renderWarnings(warnings) {
+        resultWarningsList.innerHTML = '';
+
+        if (!warnings.length) {
+            resultWarnings.style.display = 'none';
+            return;
+        }
+
+        warnings.forEach((warning) => {
+            const item = document.createElement('li');
+            item.textContent = warning;
+            resultWarningsList.appendChild(item);
+        });
+
+        resultWarnings.style.display = 'block';
+    }
+
     function showFailure(messageText) {
         errorMessage.textContent = messageText;
         showSection(errorSection);
@@ -590,6 +610,7 @@ document.addEventListener('DOMContentLoaded', () => {
     function resetApp() {
         stopPolling();
         selectedFiles = [];
+        uploadForm.reset();
         renderFileList();
         
         // Reset compression radios
@@ -611,6 +632,14 @@ document.addEventListener('DOMContentLoaded', () => {
         uploadProgressFill.style.width = '0%';
         uploadProgressPercent.textContent = '0%';
         uploadProgressText.textContent = 'Preparando envio...';
+        uploadProgressContainer.style.display = 'block';
+        processingProgressContainer.style.display = 'none';
+
+        // Reset result state
+        resultFiles.textContent = '—';
+        resultSize.textContent = '—';
+        downloadBtn.href = '#';
+        renderWarnings([]);
 
         showSection(uploadSection);
     }

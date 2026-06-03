@@ -849,6 +849,35 @@ body {
     letter-spacing: 0.05em;
 }
 
+.result-warnings {
+    margin-bottom: var(--space-lg);
+    padding: var(--space-md);
+    background: rgba(245, 158, 11, 0.08);
+    border: 1px solid rgba(245, 158, 11, 0.22);
+    border-radius: var(--border-radius-xs);
+}
+
+.result-warnings-title {
+    display: flex;
+    align-items: center;
+    gap: var(--space-sm);
+    margin-bottom: var(--space-sm);
+    color: var(--accent-warning);
+    font-weight: 700;
+}
+
+.result-warnings-list {
+    margin: 0;
+    padding-left: var(--space-lg);
+    color: var(--text-secondary);
+    font-size: 0.9rem;
+    line-height: 1.5;
+}
+
+.result-warnings-list li + li {
+    margin-top: var(--space-xs);
+}
+
 .result-warning {
     display: flex;
     align-items: center;

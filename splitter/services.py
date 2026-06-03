@@ -30,6 +30,7 @@ class PDFSplitter:
             raise ValueError('O tamanho máximo deve ser maior que zero.')
         self.max_size_bytes = max_size_bytes
         self.compress_level = compress_level
+        self.warnings = []
 
     def split(self, input_path: str, output_dir: str, base_name: str = None) -> list[str]:
         """
@@ -126,10 +127,17 @@ class PDFSplitter:
         first_page_bytes = self._render_pages(reader, start_page, start_page + 1)
         if len(first_page_bytes) > self.max_size_bytes:
             # A primeira página já excede o limite. Ela deve ir sozinha.
+            page_size_mb = len(first_page_bytes) / settings.PDF_SPLIT_BYTES_PER_MB
+            max_size_mb = self.max_size_bytes / settings.PDF_SPLIT_BYTES_PER_MB
             logger.warning(
                 f'Página {start_page + 1} excede o limite de tamanho '
-                f'({len(first_page_bytes) / settings.PDF_SPLIT_BYTES_PER_MB:.2f} MB). '
+                f'({page_size_mb:.2f} MB). '
                 f'Incluindo-a em arquivo individual.'
+            )
+            self.warnings.append(
+                f'A página {start_page + 1} ficou com {page_size_mb:.2f} MB, '
+                f'acima do limite de {max_size_mb:.2f} MB. Uma página individual '
+                'não pode ser dividida sem alterar o conteúdo.'
             )
             return start_page + 1, first_page_bytes
 

@@ -276,6 +276,7 @@ def status(request, job_id):
     data = {
         'status': job.status,
         'progress': job.progress,
+        'warnings': job.processing_warnings,
     }
 
     if job.status == SplitJob.Status.COMPLETED:

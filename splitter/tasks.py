@@ -43,6 +43,8 @@ def process_split_job(self, job_id: int):
     job.task_id = task_id
     job.save(update_fields=['status', 'task_id'])
 
+    processing_warnings = []
+
     try:
         input_dir = job.input_dir
         output_dir = job.output_dir
@@ -61,6 +63,7 @@ def process_split_job(self, job_id: int):
         
         for idx, pdf_path in enumerate(input_files):
             current_target_pdf = pdf_path
+            compression_applied = False
             
             # 1. Compressão opcional via Ghostscript
             if use_compression:
@@ -72,10 +75,27 @@ def process_split_job(self, job_id: int):
                 compressed_path = compressed_dir / f'compressed_{pdf_path.name}'
                 
                 compressor = PDFCompressor(job.compress_level)
-                compressor.compress(str(pdf_path), str(compressed_path))
-                
-                # Redireciona o target para o arquivo comprimido
-                current_target_pdf = compressed_path
+                try:
+                    compressor.compress(str(pdf_path), str(compressed_path))
+
+                    original_size = pdf_path.stat().st_size
+                    compressed_size = compressed_path.stat().st_size
+                    if compressed_size < original_size:
+                        current_target_pdf = compressed_path
+                        compression_applied = True
+                    else:
+                        processing_warnings.append(
+                            f'Não foi possível reduzir "{pdf_path.name}" com o nível de compressão selecionado. '
+                            'O arquivo original foi mantido.'
+                        )
+                        current_target_pdf = pdf_path
+                except Exception as exc:
+                    processing_warnings.append(
+                        f'Não foi possível comprimir "{pdf_path.name}". '
+                        'O arquivo original foi mantido para continuar o processamento.'
+                    )
+                    logger.warning(f'Compressão ignorada para {pdf_path.name}: {exc}')
+                    current_target_pdf = pdf_path
                 
                 # Atualizar progresso parcial (até 45% do job total para compressão)
                 progress = int(((idx + 1) / total_files) * 45)
@@ -98,19 +118,22 @@ def process_split_job(self, job_id: int):
                     output_dir=str(output_dir),
                     base_name=pdf_path.stem  # Mantém o nome amigável do arquivo original
                 )
+                processing_warnings.extend(
+                    f'{pdf_path.name}: {warning}' for warning in splitter.warnings
+                )
                 
                 # Nomenclatura dinâmica
                 final_split_files = []
                 if len(temp_output_files) == 1:
                     old_path = Path(temp_output_files[0])
-                    suffix = '_comprimido_dividido' if use_compression else '_dividido'
+                    suffix = '_comprimido_dividido' if compression_applied else '_dividido'
                     new_path = old_path.parent / f'{pdf_path.stem}{suffix}.pdf'
                     old_path.rename(new_path)
                     final_split_files.append(str(new_path))
                 else:
                     for p_idx, file_str in enumerate(temp_output_files):
                         old_path = Path(file_str)
-                        prefix = '_comprimido' if use_compression else ''
+                        prefix = '_comprimido' if compression_applied else ''
                         new_path = old_path.parent / f'{pdf_path.stem}{prefix}_parte{p_idx + 1:03d}.pdf'
                         old_path.rename(new_path)
                         final_split_files.append(str(new_path))
@@ -120,6 +143,14 @@ def process_split_job(self, job_id: int):
                 for output_file in final_split_files:
                     output_path = Path(output_file)
                     if output_path.stat().st_size > max_size_bytes:
+                        warning = (
+                            f'"{output_path.name}" ficou com '
+                            f'{output_path.stat().st_size / settings.PDF_SPLIT_BYTES_PER_MB:.2f} MB, '
+                            f'acima do limite de {max_size_bytes / settings.PDF_SPLIT_BYTES_PER_MB:.2f} MB. '
+                            'Isso pode ocorrer quando uma única página excede o limite.'
+                        )
+                        if warning not in processing_warnings:
+                            processing_warnings.append(warning)
                         logger.warning(
                             'Arquivo gerado acima do limite solicitado: %s (%.2f MB > %.2f MB). '
                             'Isso pode ocorrer quando uma unica pagina excede o limite.',
@@ -137,7 +168,7 @@ def process_split_job(self, job_id: int):
             else:
                 # Caso não divida, o próprio arquivo (comprimido ou original) é enviado para a saída
                 # Copiar para a pasta de saída com sufixo amigável
-                suffix = '_comprimido' if use_compression else ''
+                suffix = '_comprimido' if compression_applied else ''
                 dest_name = f'{pdf_path.stem}{suffix}.pdf'
                 dest_path = output_dir / dest_name
                 shutil.copy2(str(current_target_pdf), str(dest_path))
@@ -167,9 +198,11 @@ def process_split_job(self, job_id: int):
             job.total_output_size_mb = file_size_mb
             job.output_zip_path = str(final_file_path)
             job.completed_at = timezone.now()
+            job.processing_warnings = processing_warnings
             job.save(update_fields=[
                 'status', 'progress', 'total_output_files',
-                'total_output_size_mb', 'output_zip_path', 'completed_at'
+                'total_output_size_mb', 'output_zip_path', 'completed_at',
+                'processing_warnings'
             ])
 
             logger.info(
@@ -203,9 +236,11 @@ def process_split_job(self, job_id: int):
             job.total_output_size_mb = zip_size_mb
             job.output_zip_path = str(zip_path)
             job.completed_at = timezone.now()
+            job.processing_warnings = processing_warnings
             job.save(update_fields=[
                 'status', 'progress', 'total_output_files',
-                'total_output_size_mb', 'output_zip_path', 'completed_at'
+                'total_output_size_mb', 'output_zip_path', 'completed_at',
+                'processing_warnings'
             ])
 
             logger.info(
@@ -217,7 +252,8 @@ def process_split_job(self, job_id: int):
         logger.exception(f'Erro fatal ao processar SplitJob #{job_id}')
         job.status = SplitJob.Status.FAILED
         job.error_message = str(exc)
-        job.save(update_fields=['status', 'error_message'])
+        job.processing_warnings = processing_warnings
+        job.save(update_fields=['status', 'error_message', 'processing_warnings'])
 
         # Em modo eager, não tenta retry (que dependeria de backend de resultados)
         if getattr(settings, 'CELERY_TASK_ALWAYS_EAGER', False):

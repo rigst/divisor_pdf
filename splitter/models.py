@@ -95,6 +95,11 @@ class SplitJob(models.Model):
         blank=True,
         help_text='Mensagem de erro caso tenha falhado'
     )
+    processing_warnings = models.JSONField(
+        default=list,
+        blank=True,
+        help_text='Avisos sobre limitações encontradas no processamento'
+    )
 
     # Timestamps
     created_at = models.DateTimeField(auto_now_add=True)
