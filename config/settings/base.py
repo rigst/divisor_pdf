@@ -121,6 +121,9 @@ FILE_UPLOAD_MAX_MEMORY_SIZE = 10 * 1024 * 1024
 # Diretório para uploads temporários
 FILE_UPLOAD_TEMP_DIR = str(BASE_DIR / 'media' / 'tmp')
 
+# Tempo máximo para cada chamada do Ghostscript
+GHOSTSCRIPT_TIMEOUT_SECONDS = int(os.getenv('GHOSTSCRIPT_TIMEOUT_SECONDS', '300'))
+
 
 # ==============================================================================
 # Session Configuration

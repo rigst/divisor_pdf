@@ -87,7 +87,10 @@ def process_split_job(self, job_id: int):
                 logger.info(f'[{idx + 1}/{total_files}] Dividindo: {current_target_pdf.name}')
                 
                 max_size_bytes = int(job.max_size_mb * 1024 * 1024)
-                splitter = PDFSplitter(max_size_bytes, compress_level=job.compress_level)
+                splitter_compress_level = (
+                    SplitJob.CompressLevel.NONE if use_compression else job.compress_level
+                )
+                splitter = PDFSplitter(max_size_bytes, compress_level=splitter_compress_level)
                 
                 # O splitter grava os arquivos diretamente na pasta de output
                 temp_output_files = splitter.split(

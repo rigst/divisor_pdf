@@ -8,6 +8,7 @@ import io
 import logging
 from pathlib import Path
 
+from django.conf import settings
 from pypdf import PdfReader, PdfWriter
 
 logger = logging.getLogger(__name__)
@@ -222,7 +223,8 @@ class PDFSplitter:
                     cmd,
                     stdout=subprocess.PIPE,
                     stderr=subprocess.PIPE,
-                    check=True
+                    check=True,
+                    timeout=settings.GHOSTSCRIPT_TIMEOUT_SECONDS,
                 )
                 if output_path.exists() and output_path.stat().st_size > 0:
                     return output_path.read_bytes()
@@ -304,7 +306,8 @@ class PDFCompressor:
                 stdout=subprocess.PIPE,
                 stderr=subprocess.PIPE,
                 text=True,
-                check=True
+                check=True,
+                timeout=settings.GHOSTSCRIPT_TIMEOUT_SECONDS,
             )
             
             # Validar se o arquivo de saída realmente foi criado e tem conteúdo
@@ -326,7 +329,11 @@ class PDFCompressor:
             err_msg = e.stderr or e.stdout or 'Erro desconhecido.'
             logger.error(f'Falha no Ghostscript: {err_msg}')
             raise RuntimeError(f'Falha na compressão do PDF via Ghostscript: {err_msg}')
+        except subprocess.TimeoutExpired as e:
+            logger.error(f'Ghostscript excedeu o timeout de {settings.GHOSTSCRIPT_TIMEOUT_SECONDS}s')
+            raise RuntimeError(
+                f'Ghostscript excedeu o tempo limite de {settings.GHOSTSCRIPT_TIMEOUT_SECONDS}s'
+            ) from e
         except Exception as e:
             logger.exception('Erro inesperado durante a compressão.')
             raise RuntimeError(f'Erro ao invocar o compressor de PDF: {e}')
-

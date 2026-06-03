@@ -14,6 +14,7 @@ from pypdf import PdfWriter, PdfReader
 from .models import SplitJob
 from .services import PDFSplitter, PDFCompressor
 from .tasks import process_split_job, cleanup_expired_sessions
+from .views import _safe_pdf_filename
 
 
 # Diretório temporário específico para arquivos de teste
@@ -162,6 +163,18 @@ class PDFViewsTestCase(TestCase):
         response = self.client.get('/')
         self.assertEqual(response.status_code, 200)
         self.assertContains(response, 'Divisor')
+
+    def test_safe_pdf_filename_sanitizes_and_avoids_duplicates(self):
+        """Valida normalizacao de nomes antes de gravar uploads em disco."""
+        used_names = set()
+
+        first = _safe_pdf_filename('../../relatorio final.pdf', used_names)
+        second = _safe_pdf_filename('../../relatorio final.pdf', used_names)
+        third = _safe_pdf_filename('', used_names)
+
+        self.assertEqual(first, 'relatorio_final.pdf')
+        self.assertEqual(second, 'relatorio_final_2.pdf')
+        self.assertEqual(third, 'arquivo.pdf')
 
     @patch('splitter.tasks.process_split_job.delay')
     def test_upload_split_only_happy_path(self, mock_delay):

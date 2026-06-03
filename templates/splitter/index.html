@@ -38,7 +38,12 @@
             <h2>Upload de PDFs</h2>
         </div>
 
-        <form id="upload-form" enctype="multipart/form-data">
+        <form
+            id="upload-form"
+            enctype="multipart/form-data"
+            data-max-upload-size-mb="{{ max_upload_size_mb }}"
+            data-max-total-upload-mb="{{ max_total_upload_mb }}"
+        >
             {% csrf_token %}
 
             <!-- Drop Zone -->
@@ -166,7 +171,7 @@
                             id="max-size-input"
                             name="max_size_mb"
                             min="0.1"
-                            max="500"
+                            max="{{ max_upload_size_mb }}"
                             step="0.1"
                             value="10"
                             class="size-number-input"

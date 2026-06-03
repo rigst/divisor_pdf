@@ -65,8 +65,8 @@ document.addEventListener('DOMContentLoaded', () => {
     // --- State Variables ---
     let selectedFiles = [];
     let pollingInterval = null;
-    const MAX_FILE_SIZE_MB = 500;
-    const MAX_TOTAL_SIZE_MB = 2048;
+    const MAX_FILE_SIZE_MB = Number(uploadForm.dataset.maxUploadSizeMb || 500);
+    const MAX_TOTAL_SIZE_MB = Number(uploadForm.dataset.maxTotalUploadMb || 2048);
 
     // --- Toast Notifications ---
     function showToast(message, type = 'error') {
@@ -371,6 +371,10 @@ document.addEventListener('DOMContentLoaded', () => {
             const max_size_mb = parseFloat(maxSizeInput.value);
             if (isNaN(max_size_mb) || max_size_mb < 0.1) {
                 showToast('Informe um tamanho máximo de divisão válido.');
+                return;
+            }
+            if (max_size_mb > MAX_FILE_SIZE_MB) {
+                showToast(`O tamanho máximo de divisão não pode exceder ${MAX_FILE_SIZE_MB} MB.`);
                 return;
             }
             formData.append('max_size_mb', max_size_mb);

@@ -8,6 +8,7 @@ import logging
 from pathlib import Path
 
 from django.conf import settings
+from django.utils.text import get_valid_filename
 from django.http import (
     FileResponse,
     JsonResponse,
@@ -20,6 +21,26 @@ from django.views.decorators.csrf import csrf_protect
 from django.views.decorators.http import require_GET, require_POST
 
 logger = logging.getLogger(__name__)
+
+
+def _safe_pdf_filename(filename: str, used_names: set[str]) -> str:
+    """Normaliza o nome do upload e evita sobrescrita dentro do mesmo job."""
+    raw_name = Path(filename).name or 'arquivo.pdf'
+    safe_name = get_valid_filename(raw_name)
+
+    stem = Path(safe_name).stem or 'arquivo'
+    suffix = Path(safe_name).suffix.lower()
+    if suffix != '.pdf':
+        safe_name = f'{stem}.pdf'
+
+    candidate = safe_name
+    counter = 2
+    while candidate in used_names:
+        candidate = f'{stem}_{counter}.pdf'
+        counter += 1
+
+    used_names.add(candidate)
+    return candidate
 
 
 def index(request):
@@ -81,9 +102,9 @@ def upload(request):
                     {'error': 'O tamanho máximo deve ser de pelo menos 0.1 MB.'},
                     status=400
                 )
-            if max_size_mb > 500:
+            if max_size_mb > settings.MAX_UPLOAD_SIZE_MB:
                 return JsonResponse(
-                    {'error': 'O tamanho máximo não pode exceder 500 MB.'},
+                    {'error': f'O tamanho máximo não pode exceder {settings.MAX_UPLOAD_SIZE_MB} MB.'},
                     status=400
                 )
         except (ValueError, TypeError):
@@ -103,6 +124,8 @@ def upload(request):
     # Validar cada arquivo
     total_size = 0
     filenames = []
+    upload_files = []
+    used_filenames = set()
     for f in files:
         # Verificar extensão
         if not f.name.lower().endswith('.pdf'):
@@ -134,7 +157,9 @@ def upload(request):
             )
 
         total_size += f.size
-        filenames.append(f.name)
+        safe_name = _safe_pdf_filename(f.name, used_filenames)
+        filenames.append(safe_name)
+        upload_files.append((f, safe_name))
 
     # Verificar tamanho total
     if total_size > settings.MAX_TOTAL_UPLOAD_SIZE:
@@ -170,8 +195,8 @@ def upload(request):
         input_dir = job.input_dir
         input_dir.mkdir(parents=True, exist_ok=True)
 
-        for f in files:
-            file_path = input_dir / f.name
+        for f, safe_name in upload_files:
+            file_path = input_dir / safe_name
             with open(file_path, 'wb') as dest:
                 for chunk in f.chunks():
                     dest.write(chunk)
