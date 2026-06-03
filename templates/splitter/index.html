@@ -185,6 +185,13 @@
                 </p>
             </div>
 
+            <div id="time-estimate" class="time-estimate" style="display: none;">
+                <div class="time-estimate-header">
+                    <span class="time-estimate-label">Previsão</span>
+                    <span id="time-estimate-total" class="time-estimate-total">Calculando...</span>
+                </div>
+            </div>
+
             <!-- Submit Button -->
             <button type="submit" id="submit-btn" class="btn btn-primary" style="display: none;" disabled>
                 <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -236,6 +243,8 @@
                 <span id="progress-percent">0%</span>
             </div>
         </div>
+
+        <div id="workflow-eta" class="workflow-eta">Tempo restante total: calculando...</div>
     </section>
 
     <!-- Result Section -->

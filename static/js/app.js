@@ -34,11 +34,14 @@ document.addEventListener('DOMContentLoaded', () => {
     const maxSizeSlider = document.getElementById('max-size-slider');
     const maxSizeInput = document.getElementById('max-size-input');
     const sizeHint = document.getElementById('size-hint');
+    const timeEstimate = document.getElementById('time-estimate');
+    const timeEstimateTotal = document.getElementById('time-estimate-total');
     const submitBtn = document.getElementById('submit-btn');
 
     // Processing & progress UI
     const processingSection = document.getElementById('processing-section');
     const processingTitle = document.getElementById('processing-title');
+    const workflowEta = document.getElementById('workflow-eta');
     const uploadProgressContainer = document.getElementById('upload-progress-container');
     const uploadProgressFill = document.getElementById('upload-progress-fill');
     const uploadProgressText = document.getElementById('upload-progress-text');
@@ -67,6 +70,11 @@ document.addEventListener('DOMContentLoaded', () => {
     // --- State Variables ---
     let selectedFiles = [];
     let pollingInterval = null;
+    let etaTickInterval = null;
+    let workflowEtaDeadline = null;
+    let latestProcessingProgress = 0;
+    let processingStartedAt = null;
+    let lastProcessingProgress = 0;
     const MAX_FILE_SIZE_MB = Number(uploadForm.dataset.maxUploadSizeMb || 500);
     const MAX_TOTAL_SIZE_MB = Number(uploadForm.dataset.maxTotalUploadMb || 2048);
 
@@ -94,6 +102,155 @@ document.addEventListener('DOMContentLoaded', () => {
         return parseFloat((bytes / Math.pow(k, i)).toFixed(dm)) + ' ' + sizes[i];
     }
 
+    function formatDuration(seconds) {
+        if (!Number.isFinite(seconds) || seconds <= 0) return 'menos de 1s';
+
+        const roundedSeconds = Math.max(1, Math.round(seconds));
+        const minutes = Math.floor(roundedSeconds / 60);
+        const remainingSeconds = roundedSeconds % 60;
+
+        if (minutes <= 0) return `${remainingSeconds}s`;
+        return `${minutes}min ${remainingSeconds.toString().padStart(2, '0')}s`;
+    }
+
+    function getTotalSelectedBytes() {
+        return selectedFiles.reduce((acc, f) => acc + f.size, 0);
+    }
+
+    function getSelectedActions() {
+        const selectedRadio = document.querySelector('input[name="compress_level"]:checked');
+        return {
+            compressLevel: selectedRadio ? selectedRadio.value : 'none',
+            shouldSplit: shouldSplitCheckbox.checked,
+        };
+    }
+
+    function estimateActionDurations(totalBytes, compressLevel, shouldSplit) {
+        const totalMb = totalBytes / (1024 * 1024);
+        const fileCount = Math.max(selectedFiles.length, 1);
+        const durations = {
+            setup: 2 + (fileCount * 1.5),
+            compression: 0,
+            split: 0,
+        };
+
+        if (compressLevel !== 'none') {
+            const compressionFactor = {
+                low: 0.8,
+                medium: 1.2,
+                high: 1.7,
+            }[compressLevel] || 1.2;
+            durations.compression = Math.max(3, totalMb * compressionFactor);
+        }
+
+        if (shouldSplit) {
+            const maxSizeMb = Math.max(parseFloat(maxSizeInput.value) || 10, 0.1);
+            const expectedParts = Math.max(fileCount, Math.ceil(totalMb / maxSizeMb));
+            durations.split = Math.max(2, totalMb * 0.35) + (expectedParts * 0.8);
+        }
+
+        return durations;
+    }
+
+    function getWorkflowEstimate() {
+        const { compressLevel, shouldSplit } = getSelectedActions();
+        const totalBytes = getTotalSelectedBytes();
+        const estimatedUploadSeconds = Math.max(1, (totalBytes / (1024 * 1024)) / 8);
+        const durations = estimateActionDurations(totalBytes, compressLevel, shouldSplit);
+        const totalSeconds = (
+            estimatedUploadSeconds
+            + durations.setup
+            + durations.compression
+            + durations.split
+        );
+
+        return {
+            compressLevel,
+            shouldSplit,
+            totalSeconds,
+            upload: estimatedUploadSeconds,
+            setup: durations.setup,
+            compression: durations.compression,
+            split: durations.split,
+        };
+    }
+
+    function updateInitialTimeEstimate() {
+        if (selectedFiles.length === 0) {
+            timeEstimate.style.display = 'none';
+            return;
+        }
+
+        const estimate = getWorkflowEstimate();
+        if (estimate.compressLevel === 'none' && !estimate.shouldSplit) {
+            timeEstimate.style.display = 'none';
+            return;
+        }
+
+        timeEstimateTotal.textContent = `~${formatDuration(estimate.totalSeconds)}`;
+        timeEstimate.style.display = 'block';
+    }
+
+    function stopEtaTicker() {
+        if (etaTickInterval) {
+            clearInterval(etaTickInterval);
+            etaTickInterval = null;
+        }
+        workflowEtaDeadline = null;
+    }
+
+    function startEtaTicker() {
+        if (etaTickInterval) clearInterval(etaTickInterval);
+
+        etaTickInterval = setInterval(() => {
+            updateWorkflowEta();
+        }, 1000);
+    }
+
+    function setWorkflowEtaDeadline(seconds) {
+        workflowEtaDeadline = Date.now() + (Math.max(seconds, 1) * 1000);
+        updateWorkflowEta();
+    }
+
+    function shortenWorkflowEtaDeadline(seconds) {
+        if (!workflowEtaDeadline) return;
+
+        const proposedDeadline = Date.now() + (Math.max(seconds, 1) * 1000);
+        if (proposedDeadline < workflowEtaDeadline) {
+            workflowEtaDeadline = proposedDeadline;
+            updateWorkflowEta();
+        }
+    }
+
+    function setWorkflowEtaFromProgress(seconds) {
+        if (!workflowEtaDeadline) return;
+
+        const proposedDeadline = Date.now() + (Math.max(seconds, 1) * 1000);
+        const currentRemainingSeconds = Math.max((workflowEtaDeadline - Date.now()) / 1000, 0);
+
+        if (proposedDeadline < workflowEtaDeadline || currentRemainingSeconds <= 5) {
+            workflowEtaDeadline = proposedDeadline;
+            updateWorkflowEta();
+        }
+    }
+
+    function updateWorkflowEta() {
+        if (!workflowEtaDeadline) {
+            workflowEta.textContent = 'Tempo restante total: calculando...';
+            return;
+        }
+
+        const remainingSeconds = Math.max((workflowEtaDeadline - Date.now()) / 1000, 0);
+        if (remainingSeconds <= 0) {
+            workflowEta.textContent = latestProcessingProgress >= 95
+                ? 'Tempo restante total: finalizando...'
+                : 'Tempo restante total: recalculando...';
+            return;
+        }
+
+        workflowEta.textContent = `Tempo restante total: ${formatDuration(remainingSeconds)}`;
+    }
+
     // --- Slider & Input Sync ---
     function syncSizeLimit(value) {
         const numValue = parseFloat(value);
@@ -102,16 +259,18 @@ document.addEventListener('DOMContentLoaded', () => {
         maxSizeSlider.value = Math.min(Math.max(numValue, 0.5), 100);
         maxSizeInput.value = numValue;
         sizeHint.innerHTML = `Cada PDF resultante terá no máximo <strong>${numValue.toFixed(1)} MB</strong>`;
+        updateInitialTimeEstimate();
     }
 
     maxSizeSlider.addEventListener('input', (e) => syncSizeLimit(e.target.value));
     maxSizeInput.addEventListener('input', (e) => {
         let value = parseFloat(e.target.value);
-        if (value > 500) value = 500; // Limite máximo absoluto
+        if (value > MAX_FILE_SIZE_MB) value = MAX_FILE_SIZE_MB;
         if (value < 0.1) value = 0.1;
         
         maxSizeSlider.value = Math.min(Math.max(value, 0.5), 100);
         sizeHint.innerHTML = `Cada PDF resultante terá no máximo <strong>${value.toFixed(1)} MB</strong>`;
+        updateInitialTimeEstimate();
     });
 
     // --- Compression Cards Selection ---
@@ -131,6 +290,7 @@ document.addEventListener('DOMContentLoaded', () => {
             }
             
             updateActionButtonText();
+            updateInitialTimeEstimate();
         });
 
         // Ouvir mudanças diretas do rádio ocultado
@@ -140,6 +300,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 compressOptCards.forEach(c => c.classList.remove('active'));
                 card.classList.add('active');
                 updateActionButtonText();
+                updateInitialTimeEstimate();
             });
         }
     });
@@ -153,6 +314,7 @@ document.addEventListener('DOMContentLoaded', () => {
             sizeControl.style.display = 'none';
         }
         updateActionButtonText();
+        updateInitialTimeEstimate();
     });
 
     // --- Update Main Button text based on selections ---
@@ -188,6 +350,7 @@ document.addEventListener('DOMContentLoaded', () => {
         } else {
             submitBtn.disabled = true;
         }
+        updateInitialTimeEstimate();
     }
 
     // --- Drag & Drop ---
@@ -289,6 +452,7 @@ document.addEventListener('DOMContentLoaded', () => {
             compressControl.style.display = 'none';
             actionSwitchControl.style.display = 'none';
             sizeControl.style.display = 'none';
+            timeEstimate.style.display = 'none';
             submitBtn.style.display = 'none';
             submitBtn.disabled = true;
             fileInput.value = '';
@@ -339,6 +503,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }
         
         updateActionButtonText();
+        updateInitialTimeEstimate();
         submitBtn.style.display = 'inline-flex';
     }
 
@@ -399,6 +564,9 @@ document.addEventListener('DOMContentLoaded', () => {
         uploadProgressText.textContent = 'Iniciando upload dos arquivos...';
         uploadProgressContainer.style.display = 'block';
         processingProgressContainer.style.display = 'none';
+        stopEtaTicker();
+        setWorkflowEtaDeadline(getWorkflowEstimate().totalSeconds);
+        startEtaTicker();
 
         // Mostra a seção de processamento/envio imediatamente
         showSection(processingSection);
@@ -407,6 +575,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const xhr = new XMLHttpRequest();
         xhr.open('POST', '/api/upload/', true);
         xhr.setRequestHeader('X-CSRFToken', csrfToken);
+        const uploadStartedAt = Date.now();
 
         xhr.upload.addEventListener('progress', (e) => {
             if (e.lengthComputable) {
@@ -417,6 +586,18 @@ document.addEventListener('DOMContentLoaded', () => {
                 const loadedMb = (e.loaded / (1024 * 1024)).toFixed(1);
                 const totalMb = (e.total / (1024 * 1024)).toFixed(1);
                 uploadProgressText.textContent = `Enviando arquivos (${loadedMb} MB de ${totalMb} MB)...`;
+
+                if (e.loaded > 0 && percentComplete < 100) {
+                    const elapsedSeconds = (Date.now() - uploadStartedAt) / 1000;
+                    const uploadRate = e.loaded / Math.max(elapsedSeconds, 0.1);
+                    const remainingBytes = Math.max(e.total - e.loaded, 0);
+                    const remainingSeconds = remainingBytes / uploadRate;
+                    const estimate = getWorkflowEstimate();
+                    const remainingProcessingEstimate = (
+                        estimate.setup + estimate.compression + estimate.split
+                    );
+                    shortenWorkflowEtaDeadline(remainingSeconds + remainingProcessingEstimate);
+                }
             }
         });
 
@@ -471,6 +652,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // --- Polling Logic ---
     function startPolling(jobId, hasCompression, hasSplit) {
+        processingStartedAt = Date.now();
+        lastProcessingProgress = 0;
         updateProgress(0, 'Iniciando processamento...');
         
         pollingInterval = setInterval(async () => {
@@ -497,21 +680,26 @@ document.addEventListener('DOMContentLoaded', () => {
                         msg = 'Aguardando na fila do servidor...';
                     }
                     
-                    updateProgress(data.progress || 10, msg);
+                    updateProgress(data.progress || 0, msg);
                 } 
                 
                 else if (data.status === 'completed') {
                     stopPolling();
+                    updateProgress(100, 'Processamento concluído.');
+                    stopEtaTicker();
+                    workflowEta.textContent = 'Tempo restante total: concluído';
                     showSuccess(data);
                 } 
                 
                 else if (data.status === 'failed') {
                     stopPolling();
+                    stopEtaTicker();
                     showFailure(data.error_message || 'Erro inesperado no servidor.');
                 }
 
             } catch (error) {
                 stopPolling();
+                stopEtaTicker();
                 showFailure(error.message);
             }
         }, 1500);
@@ -525,9 +713,22 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     function updateProgress(percent, message) {
-        progressFill.style.width = `${percent}%`;
-        progressPercent.textContent = `${percent}%`;
+        const normalizedPercent = Math.min(Math.max(Number(percent) || 0, 0), 100);
+        progressFill.style.width = `${normalizedPercent}%`;
+        progressPercent.textContent = `${normalizedPercent}%`;
         progressText.textContent = message;
+        latestProcessingProgress = normalizedPercent;
+
+        if (!processingStartedAt || normalizedPercent <= 0 || normalizedPercent <= lastProcessingProgress) {
+            return;
+        }
+
+        lastProcessingProgress = normalizedPercent;
+        const elapsedSeconds = (Date.now() - processingStartedAt) / 1000;
+        const remainingSeconds = elapsedSeconds * ((100 - normalizedPercent) / normalizedPercent);
+        if (normalizedPercent < 100) {
+            setWorkflowEtaFromProgress(remainingSeconds);
+        }
     }
 
     // --- Show Sections helper ---
@@ -609,18 +810,23 @@ document.addEventListener('DOMContentLoaded', () => {
     // --- Reset Flow ---
     function resetApp() {
         stopPolling();
+        stopEtaTicker();
         selectedFiles = [];
+        latestProcessingProgress = 0;
+        processingStartedAt = null;
+        lastProcessingProgress = 0;
         uploadForm.reset();
-        renderFileList();
         
         // Reset compression radios
         compressOptCards.forEach(c => c.classList.remove('active'));
         compressOptCards[0].classList.add('active'); // none active
-        document.getElementById('est-size-none').parentNode.querySelector('input').checked = true;
+        const noCompressionRadio = document.querySelector('input[name="compress_level"][value="none"]');
+        if (noCompressionRadio) noCompressionRadio.checked = true;
 
         // Reset split checkbox
         shouldSplitCheckbox.checked = true;
-        sizeControl.style.display = 'block';
+        timeEstimate.style.display = 'none';
+        renderFileList();
 
         // Reset submit button state
         submitBtn.disabled = true;
@@ -632,6 +838,7 @@ document.addEventListener('DOMContentLoaded', () => {
         uploadProgressFill.style.width = '0%';
         uploadProgressPercent.textContent = '0%';
         uploadProgressText.textContent = 'Preparando envio...';
+        workflowEta.textContent = 'Tempo restante total: calculando...';
         uploadProgressContainer.style.display = 'block';
         processingProgressContainer.style.display = 'none';
 
