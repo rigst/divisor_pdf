@@ -124,6 +124,10 @@ FILE_UPLOAD_TEMP_DIR = str(BASE_DIR / 'media' / 'tmp')
 # Tempo máximo para cada chamada do Ghostscript
 GHOSTSCRIPT_TIMEOUT_SECONDS = int(os.getenv('GHOSTSCRIPT_TIMEOUT_SECONDS', '300'))
 
+# Limite de divisão informado pelo usuário usa MB decimal, igual ao exibido por
+# gerenciadores de arquivo comuns: 2 MB = 2.000.000 bytes.
+PDF_SPLIT_BYTES_PER_MB = 1000 * 1000
+
 
 # ==============================================================================
 # Session Configuration

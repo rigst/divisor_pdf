@@ -458,6 +458,38 @@ class PDFCeleryTasksTestCase(TestCase):
         self.assertTrue(output_path.exists())
         self.assertEqual(output_path.name, 'doc_original_comprimido_dividido.pdf')
 
+    @patch('splitter.services.PDFSplitter')
+    def test_task_uses_decimal_mb_for_split_limit(self, mock_splitter_cls):
+        """Valida que 2 MB de limite vira 2.000.000 bytes, não 2 MiB."""
+        decimal_job = SplitJob.objects.create(
+            session_key='test_decimal_mb_session',
+            original_filenames=['decimal.pdf'],
+            compress_level=SplitJob.CompressLevel.NONE,
+            should_split=True,
+            max_size_mb=2.0
+        )
+
+        input_dir = decimal_job.input_dir
+        input_dir.mkdir(parents=True, exist_ok=True)
+        pdf_path = input_dir / 'decimal.pdf'
+        pdf_path.write_bytes(self.pdf_bytes)
+
+        def fake_split(input_path, output_dir, base_name=None):
+            output_path = Path(output_dir) / f'{base_name}_parte001.pdf'
+            output_path.write_bytes(self.pdf_bytes)
+            return [str(output_path)]
+
+        mock_splitter = mock_splitter_cls.return_value
+        mock_splitter.split.side_effect = fake_split
+
+        result = process_split_job.apply(args=[decimal_job.pk])
+        self.assertTrue(result.successful())
+
+        mock_splitter_cls.assert_called_once_with(
+            2_000_000,
+            compress_level=SplitJob.CompressLevel.NONE
+        )
+
     @patch('subprocess.run')
     def test_download_single_pdf_view(self, mock_run):
         """Valida que o download de um job com 1 arquivo único serve um PDF e não um ZIP."""

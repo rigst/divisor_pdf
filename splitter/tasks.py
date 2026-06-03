@@ -86,7 +86,7 @@ def process_split_job(self, job_id: int):
             if job.should_split:
                 logger.info(f'[{idx + 1}/{total_files}] Dividindo: {current_target_pdf.name}')
                 
-                max_size_bytes = int(job.max_size_mb * 1024 * 1024)
+                max_size_bytes = int(job.max_size_mb * settings.PDF_SPLIT_BYTES_PER_MB)
                 splitter_compress_level = (
                     SplitJob.CompressLevel.NONE if use_compression else job.compress_level
                 )
@@ -116,6 +116,17 @@ def process_split_job(self, job_id: int):
                         final_split_files.append(str(new_path))
                 
                 all_output_files.extend(final_split_files)
+
+                for output_file in final_split_files:
+                    output_path = Path(output_file)
+                    if output_path.stat().st_size > max_size_bytes:
+                        logger.warning(
+                            'Arquivo gerado acima do limite solicitado: %s (%.2f MB > %.2f MB). '
+                            'Isso pode ocorrer quando uma unica pagina excede o limite.',
+                            output_path.name,
+                            output_path.stat().st_size / settings.PDF_SPLIT_BYTES_PER_MB,
+                            max_size_bytes / settings.PDF_SPLIT_BYTES_PER_MB,
+                        )
                 
                 # Atualiza progresso parcial (de 45% a 90% para divisão)
                 base_progress = 45 if use_compression else 0

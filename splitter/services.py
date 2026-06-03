@@ -69,7 +69,7 @@ class PDFSplitter:
 
         logger.info(
             f'Dividindo "{input_path.name}" ({total_pages} páginas) '
-            f'com limite de {self.max_size_bytes / (1024*1024):.1f} MB'
+            f'com limite de {self.max_size_bytes / settings.PDF_SPLIT_BYTES_PER_MB:.1f} MB'
         )
 
         output_files = []
@@ -88,7 +88,7 @@ class PDFSplitter:
             output_files.append(str(output_path))
 
             pages_in_part = end_page - current_start_page
-            size_mb = len(pdf_bytes) / (1024 * 1024)
+            size_mb = len(pdf_bytes) / settings.PDF_SPLIT_BYTES_PER_MB
             logger.info(
                 f'  Parte {part_number}: páginas {current_start_page + 1}-{end_page} '
                 f'({pages_in_part} pág, {size_mb:.2f} MB)'
@@ -128,7 +128,7 @@ class PDFSplitter:
             # A primeira página já excede o limite. Ela deve ir sozinha.
             logger.warning(
                 f'Página {start_page + 1} excede o limite de tamanho '
-                f'({len(first_page_bytes) / (1024*1024):.2f} MB). '
+                f'({len(first_page_bytes) / settings.PDF_SPLIT_BYTES_PER_MB:.2f} MB). '
                 f'Incluindo-a em arquivo individual.'
             )
             return start_page + 1, first_page_bytes
