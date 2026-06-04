@@ -59,10 +59,23 @@ def process_split_job(self, job_id: int):
             raise ValueError('Nenhum arquivo PDF encontrado para processamento.')
 
         all_output_files = []
-        
+
         # Define se usaremos compressão
         use_compression = job.compress_level != SplitJob.CompressLevel.NONE
-        
+
+        # Progresso monotônico: cada arquivo tem 1 passo de compressão (opcional)
+        # e 1 passo de divisão/cópia. Contar passos concluídos evita que a barra
+        # ande para trás quando compressão e divisão se intercalam por arquivo.
+        steps_per_file = (1 if use_compression else 0) + 1
+        total_steps = steps_per_file * total_files
+        completed_steps = 0
+
+        def _advance_progress():
+            nonlocal completed_steps
+            completed_steps += 1
+            job.progress = int((completed_steps / total_steps) * 90)
+            job.save(update_fields=['progress'])
+
         for idx, pdf_path in enumerate(input_files):
             current_target_pdf = pdf_path
             compression_applied = False
@@ -98,11 +111,8 @@ def process_split_job(self, job_id: int):
                     )
                     logger.warning(f'Compressão ignorada para {pdf_path.name}: {exc}')
                     current_target_pdf = pdf_path
-                
-                # Atualizar progresso parcial (até 45% do job total para compressão)
-                progress = int(((idx + 1) / total_files) * 45)
-                job.progress = progress
-                job.save(update_fields=['progress'])
+
+                _advance_progress()
 
             # 2. Divisão opcional via pypdf
             if job.should_split:
@@ -161,12 +171,7 @@ def process_split_job(self, job_id: int):
                             max_size_bytes / settings.PDF_SPLIT_BYTES_PER_MB,
                         )
                 
-                # Atualiza progresso parcial (de 45% a 90% para divisão)
-                base_progress = 45 if use_compression else 0
-                factor = 45 if use_compression else 90
-                progress = base_progress + int(((idx + 1) / total_files) * factor)
-                job.progress = progress
-                job.save(update_fields=['progress'])
+                _advance_progress()
             else:
                 # Caso não divida, o próprio arquivo (comprimido ou original) é enviado para a saída
                 # Copiar para a pasta de saída com sufixo amigável
@@ -175,11 +180,8 @@ def process_split_job(self, job_id: int):
                 dest_path = output_dir / dest_name
                 shutil.copy2(str(current_target_pdf), str(dest_path))
                 all_output_files.append(str(dest_path))
-                
-                # Atualiza progresso simples
-                progress = int(((idx + 1) / total_files) * 90)
-                job.progress = progress
-                job.save(update_fields=['progress'])
+
+                _advance_progress()
 
         # 3. Criação do arquivo ZIP final ou entrega direta se for arquivo único
         if len(all_output_files) == 1:
@@ -325,3 +327,34 @@ def cleanup_expired_sessions():
 
     if cleaned_count > 0:
         logger.info(f'Limpeza: {cleaned_count} job(s) removido(s)')
+
+    _cleanup_orphaned_temp_uploads(retention)
+
+
+def _cleanup_orphaned_temp_uploads(retention_seconds: int):
+    """
+    Remove uploads temporários órfãos do FILE_UPLOAD_TEMP_DIR.
+
+    O Django apaga esses arquivos quando o request termina, mas uploads
+    interrompidos (conexão caída) deixam temporários que nunca são limpos.
+    """
+    temp_dir = getattr(settings, 'FILE_UPLOAD_TEMP_DIR', None)
+    if not temp_dir:
+        return
+
+    temp_path = Path(temp_dir)
+    if not temp_path.exists():
+        return
+
+    cutoff = timezone.now().timestamp() - retention_seconds
+    removed = 0
+    for entry in temp_path.iterdir():
+        try:
+            if entry.is_file() and entry.stat().st_mtime < cutoff:
+                entry.unlink(missing_ok=True)
+                removed += 1
+        except Exception:
+            logger.exception(f'Erro ao remover upload temporário órfão: {entry}')
+
+    if removed > 0:
+        logger.info(f'Limpeza: {removed} upload(s) temporário(s) órfão(s) removido(s)')

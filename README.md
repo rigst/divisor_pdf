@@ -4,7 +4,7 @@ Aplicacao Django para enviar PDFs, comprimir com Ghostscript, dividir em partes 
 
 ## Requisitos
 
-- Python 3.14+
+- Python 3.12+
 - Ghostscript (`gs`)
 - Redis para Celery em producao
 - PostgreSQL em producao
