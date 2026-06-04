@@ -67,7 +67,18 @@ Os arquivos em `deploy/` trazem exemplos de Gunicorn, Nginx e systemd. Antes de 
 - Rode `collectstatic` e `migrate`.
 - Nao exponha `/media/` diretamente pelo Nginx; downloads devem passar pela view Django para validar sessao e status do job.
 
-Comandos tipicos:
+### Deploy automatizado
+
+O script `deploy/deploy.sh` executa todos os passos de forma idempotente
+(pull, dependencias, criacao de diretorios de runtime, `migrate`,
+`collectstatic`, `check --deploy` e restart dos servicos):
+
+```bash
+./deploy/deploy.sh            # deploy completo
+./deploy/deploy.sh --no-pull  # sem git pull (deploy local)
+```
+
+Comandos manuais equivalentes:
 
 ```bash
 ./venv/bin/python manage.py migrate --settings=config.settings.production

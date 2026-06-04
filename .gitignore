@@ -19,6 +19,11 @@ celery_results.sqlite3
 media/
 staticfiles/
 
+# Celery Beat scheduler
+celerybeat-schedule
+celerybeat-schedule.*
+celerybeat.pid
+
 # IDE
 .vscode/
 .idea/
