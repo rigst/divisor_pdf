@@ -58,8 +58,8 @@ DJANGO_SETTINGS_MODULE=config.settings.production
 
 ## Producao
 
-Para o passo a passo completo (pacotes, PostgreSQL, systemd, Nginx, HTTPS com
-Let's Encrypt e notas de SELinux no Fedora), veja **[DEPLOY.md](DEPLOY.md)**.
+Para o passo a passo completo no **Ubuntu Server** (pacotes, PostgreSQL,
+systemd, Nginx, HTTPS com Let's Encrypt e firewall), veja **[DEPLOY.md](DEPLOY.md)**.
 
 Os arquivos em `deploy/` trazem exemplos de Gunicorn, Nginx e systemd. Antes de usar:
 

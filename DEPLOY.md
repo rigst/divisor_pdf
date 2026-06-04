@@ -1,7 +1,8 @@
-# Guia de Deploy — DivisorPDF
+# Guia de Deploy — DivisorPDF (Ubuntu Server)
 
-Passo a passo para colocar a aplicação em produção com **Gunicorn + Nginx +
-Celery + PostgreSQL + Redis**, com HTTPS via Let's Encrypt.
+Passo a passo para colocar a aplicação em produção no **Ubuntu Server** com
+**Gunicorn + Nginx + Celery + PostgreSQL + Redis**, com HTTPS via Let's Encrypt.
+Testado com Ubuntu Server 22.04 / 24.04 LTS.
 
 > Substitua `SEU_DOMINIO` pelo domínio real em todos os comandos/arquivos.
 > Os arquivos de exemplo em `deploy/` assumem o caminho
@@ -11,17 +12,12 @@ Celery + PostgreSQL + Redis**, com HTTPS via Let's Encrypt.
 
 ## 1. Pacotes do sistema
 
-**Fedora / RHEL:**
-```bash
-sudo dnf install -y ghostscript redis postgresql-server nginx certbot python3-certbot-nginx python3 git
-sudo postgresql-setup --initdb            # só na primeira vez
-sudo systemctl enable --now redis postgresql nginx
-```
-
-**Debian / Ubuntu:**
 ```bash
 sudo apt update
-sudo apt install -y ghostscript redis-server postgresql nginx certbot python3-certbot-nginx python3-venv git
+sudo apt install -y \
+    python3-venv python3-dev build-essential \
+    ghostscript redis-server postgresql \
+    nginx certbot python3-certbot-nginx git
 sudo systemctl enable --now redis-server postgresql nginx
 ```
 
@@ -113,12 +109,9 @@ mkdir -p media/tmp media/sessions staticfiles
 
 ## 6. Serviços systemd (Gunicorn + Celery)
 
-Antes de copiar, ajuste o **grupo** do serviço para o usuário do nginx:
-- **Debian/Ubuntu:** `Group=www-data` (já está assim nos arquivos)
-- **Fedora/RHEL:** troque para `Group=nginx` em
-  `deploy/systemd/divisor_pdf.service` e `deploy/systemd/divisor_celery.service`
+Os arquivos em `deploy/systemd/` já vêm com `Group=www-data` (o usuário do
+nginx no Ubuntu) — não precisa alterar.
 
-Instale e inicie:
 ```bash
 sudo cp deploy/systemd/divisor_pdf.service /etc/systemd/system/
 sudo cp deploy/systemd/divisor_celery.service /etc/systemd/system/
@@ -128,7 +121,8 @@ sudo systemctl status divisor_pdf divisor_celery --no-pager
 ```
 
 O Gunicorn cria o socket em `divisor_pdf.sock` dentro do projeto. Para o nginx
-conseguir acessá-lo, o diretório `home` precisa ser "atravessável":
+(`www-data`) conseguir acessá-lo, o caminho até o projeto precisa ser
+"atravessável" por outros usuários:
 ```bash
 chmod o+x /home/rodrigostolben /home/rodrigostolben/Projetos /home/rodrigostolben/Projetos/divisor_pdf
 ```
@@ -139,13 +133,19 @@ chmod o+x /home/rodrigostolben /home/rodrigostolben/Projetos /home/rodrigostolbe
 
 ```bash
 sudo mkdir -p /var/www/certbot
-# Edite deploy/nginx.conf e troque SEU_DOMINIO pelo domínio real
-sudo cp deploy/nginx.conf /etc/nginx/conf.d/divisor_pdf.conf
+
+# Edite deploy/nginx.conf e troque SEU_DOMINIO pelo domínio real, então:
+sudo cp deploy/nginx.conf /etc/nginx/sites-available/divisor_pdf
+sudo ln -sf /etc/nginx/sites-available/divisor_pdf /etc/nginx/sites-enabled/divisor_pdf
+
+# Remova o site padrão do Ubuntu para não conflitar
+sudo rm -f /etc/nginx/sites-enabled/default
 ```
 
-Para conseguir emitir o certificado, o bloco `server 443` ainda não funciona
-(o cert não existe). **Comente temporariamente o bloco `server { listen 443 ... }`
-inteiro** e deixe só o bloco da porta 80. Então:
+O bloco `server 443` ainda não funciona (o certificado não existe). **Comente
+temporariamente o bloco `server { listen 443 ssl; ... }` inteiro** em
+`/etc/nginx/sites-available/divisor_pdf`, deixando só o bloco da porta 80.
+Então valide e recarregue:
 
 ```bash
 sudo nginx -t && sudo systemctl reload nginx
@@ -155,42 +155,34 @@ sudo nginx -t && sudo systemctl reload nginx
 
 ## 8. HTTPS com Let's Encrypt
 
+Aponte o DNS do domínio para o IP do servidor **antes** deste passo.
+
 Emita o certificado via webroot (o bloco porta 80 já serve o desafio):
 ```bash
 sudo certbot certonly --webroot -w /var/www/certbot -d SEU_DOMINIO --agree-tos -m seu-email@exemplo.com
 ```
 
 Depois de emitido, **descomente o bloco `server 443`** em
-`/etc/nginx/conf.d/divisor_pdf.conf` e recarregue:
+`/etc/nginx/sites-available/divisor_pdf` e recarregue:
 ```bash
 sudo nginx -t && sudo systemctl reload nginx
 ```
 
-Renovação automática (o certbot já instala um timer; teste com):
+Renovação automática (o pacote do Ubuntu já instala o timer `certbot.timer`;
+confirme e teste):
 ```bash
+systemctl status certbot.timer --no-pager
 sudo certbot renew --dry-run
 ```
 
 ---
 
-## 9. Fedora/RHEL: SELinux (pular no Debian/Ubuntu)
+## 9. Firewall (se o UFW estiver ativo)
 
-O SELinux do Fedora bloqueia o nginx de conectar no socket e de ler arquivos em
-`/home` por padrão. Habilite:
 ```bash
-# Permitir que o nginx faça proxy / conecte no socket do Gunicorn
-sudo setsebool -P httpd_can_network_connect 1
-# Permitir que o nginx leia conteúdo no /home do usuário
-sudo setsebool -P httpd_read_user_content 1
-```
-
-Se o nginx ainda retornar 502/403, verifique as negações do SELinux:
-```bash
-sudo ausearch -m avc -ts recent
-```
-e ajuste o contexto dos estáticos, se necessário:
-```bash
-sudo chcon -Rt httpd_sys_content_t /home/rodrigostolben/Projetos/divisor_pdf/staticfiles
+sudo ufw allow 'Nginx Full'   # libera 80 e 443
+sudo ufw allow OpenSSH
+sudo ufw status
 ```
 
 ---
@@ -225,9 +217,10 @@ cd /home/rodrigostolben/Projetos/divisor_pdf
 
 | Sintoma | Causa provável | Ação |
 |---|---|---|
-| 502 Bad Gateway | Gunicorn fora / socket inacessível | `systemctl status divisor_pdf`; permissões do `home` (passo 6); SELinux (passo 9) |
-| 403 nos estáticos | Permissão / contexto SELinux | passo 9 (`chcon`); confira `alias` no nginx |
+| 502 Bad Gateway | Gunicorn fora / socket inacessível | `systemctl status divisor_pdf`; permissões do `home` (passo 6) |
+| 403 nos estáticos | Permissão de leitura / `www-data` não alcança o `home` | passo 6 (`chmod o+x`); confira o `alias` no nginx |
 | Compressão não reduz / falha | Ghostscript ausente | `gs --version`; reinstale o pacote |
 | Upload trava ou erro 413 | `client_max_body_size` menor que o upload | alinhe com `MAX_TOTAL_UPLOAD_MB` no nginx |
-| Job fica "processando" pra sempre | Celery parado / Redis fora | `systemctl status divisor_celery redis` |
+| Job fica "processando" pra sempre | Celery parado / Redis fora | `systemctl status divisor_celery redis-server` |
 | `RuntimeError: ... obrigatória em produção` | `.env` incompleto | preencha `SECRET_KEY`, `ALLOWED_HOSTS`, `DB_*` |
+| Certbot falha na validação | DNS não aponta / porta 80 fechada | confirme o DNS e `sudo ufw allow 'Nginx Full'` |
