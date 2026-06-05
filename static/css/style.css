@@ -1027,6 +1027,11 @@ body {
 :root {
     --font-display: 'Manrope', 'Inter', sans-serif;
     --ink: #0f1115;
+    /* raios mais generosos, no tom do site */
+    --r-lg: 22px;
+    --r-md: 16px;
+    --r-sm: 12px;
+    --r-xs: 8px;
 }
 
 /* Hero header: painel escuro arredondado, com glow e grade sutil */
@@ -1084,4 +1089,28 @@ body {
 
 /* Rodapé enxuto, com filete de divisão */
 .footer { border-top: 1px solid var(--border); margin-top: var(--space-2xl); }
+
+/* Cartões mais planos, com borda fina (estilo DS) */
+.card { box-shadow: var(--shadow-sm); }
+
+/* Botões em pílula, com brilho azul no acento */
+.btn { border-radius: 999px; }
+.btn-primary { box-shadow: 0 0 22px rgba(37, 99, 235, 0.30); }
+.btn-primary:hover:not(:disabled) { box-shadow: 0 0 28px rgba(37, 99, 235, 0.45); }
+.btn-download { box-shadow: 0 0 22px rgba(22, 163, 74, 0.28); }
+.btn-download:hover { box-shadow: 0 0 28px rgba(22, 163, 74, 0.42); }
+
+/* Drop-zone e ícone com cara do DS */
+.drop-zone { border-radius: var(--r-md); }
+.drop-zone.drag-over { box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.18); }
+
+/* Ícone de seção: quadrado arredondado azul-claro como no site */
+.card-icon { border-radius: 14px; }
+
+/* Números de resultado em Manrope */
+.stat-value { font-family: var(--font-display); font-weight: 700; }
+
+/* Foco visível consistente (acento azul) */
+.drop-zone:focus-visible,
+.compress-opt-card:focus-within { outline: 2px solid var(--brand); outline-offset: 2px; }
 
