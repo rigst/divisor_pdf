@@ -4,23 +4,27 @@
 {% block title %}Divisor de PDFs — Divida seus PDFs em partes menores{% endblock %}
 
 {% block content %}
-<header class="header">
-    <div class="header-content">
-        <div class="product-eyebrow">Processamento seguro de documentos</div>
-        <div class="logo">
-            <svg class="logo-icon" viewBox="0 0 40 40" fill="none" xmlns="http://www.w3.org/2000/svg">
-                <rect x="4" y="3" width="27" height="34" rx="5" fill="#1d4ed8"/>
-                <path d="M31 12h5v25H14" stroke="#1e293b" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-                <path d="M11 13h14M11 20h14M11 27h7" stroke="white" stroke-width="2.2" stroke-linecap="round"/>
-                <path d="M22 25l5 5 7-10" stroke="#60a5fa" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/>
-            </svg>
-            <h1 class="logo-text">Divisor<span class="logo-accent">PDF</span></h1>
-        </div>
-        <p class="header-subtitle">Comprima e divida documentos PDF extensos em arquivos otimizados, prontos para distribuição.</p>
-    </div>
+<header class="ds-nav" id="site-nav">
+    <nav class="ds-nav-pill" aria-label="Navegação principal">
+        <a class="ds-nav-brand" href="/">Divisor<span class="logo-accent">PDF</span></a>
+        <ul class="ds-nav-links">
+            <li><a href="#upload-section">Dividir PDF</a></li>
+        </ul>
+        <a class="ds-nav-cta" href="https://stolben.com/" target="_blank" rel="noreferrer">Stölben ↗</a>
+    </nav>
 </header>
 
-<main class="main-content">
+<main class="ds-stack main-content">
+    <!-- Hero -->
+    <header class="header ds-panel-dark">
+        <div class="ds-glow" aria-hidden="true"></div>
+        <div class="ds-noise" aria-hidden="true"></div>
+        <div class="header-content">
+            <span class="ds-badge ds-badge--info-dark"><span class="ds-dot"></span> Processamento seguro de documentos</span>
+            <h1 class="logo-text ds-h1">Divida e comprima <br><span class="ds-muted">seus PDFs em segundos.</span></h1>
+            <p class="header-subtitle">Comprima e divida documentos PDF extensos em arquivos otimizados, prontos para distribuição — direto no navegador, sem instalar nada.</p>
+        </div>
+    </header>
     <!-- Upload Section -->
     <section id="upload-section" class="card card-upload">
         <div class="card-header">
@@ -326,11 +330,13 @@
             <span>Tentar novamente</span>
         </button>
     </section>
-</main>
 
-<footer class="footer">
-    <p>&copy; 2026 DivisorPDF. Seus arquivos são processados com segurança e removidos automaticamente.</p>
-</footer>
+    <footer class="footer">
+        <p class="footer-brand">Divisor<span class="logo-accent">PDF</span></p>
+        <p>Seus arquivos são processados com segurança e removidos automaticamente. <br>
+           Um app <a href="https://stolben.com/" target="_blank" rel="noreferrer">Stölben</a> · &copy; 2026</p>
+    </footer>
+</main>
 
 <!-- Toast container for notifications -->
 <div id="toast-container" class="toast-container"></div>

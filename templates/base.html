@@ -4,23 +4,28 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta name="description" content="Divida arquivos PDF grandes em partes menores de forma rápida e segura. Upload, defina o tamanho máximo e baixe o resultado.">
-    <meta name="theme-color" content="#ffffff">
+    <meta name="theme-color" content="#0f1115">
     <title>{% block title %}Divisor de PDFs{% endblock %}</title>
 
-    <!-- Google Fonts -->
+    <!-- Google Fonts (alinhado ao design system Stölben) -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Manrope:wght@500;600;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Manrope:wght@400;500;600;700&display=swap" rel="stylesheet">
 
     {% load static %}
+    <!-- Design system Stölben (tokens + componentes .ds-*) -->
+    <link rel="stylesheet" href="{% static 'css/stolben-ui.css' %}">
+    <!-- Camada específica do app (sobre os tokens do DS) -->
     <link rel="stylesheet" href="{% static 'css/style.css' %}">
     {% block extra_css %}{% endblock %}
 </head>
-<body>
-    <div class="app-container">
+<body class="ds-root">
+    <div class="ds-shell">
+        <div class="ds-lines" aria-hidden="true"><span></span><span></span><span></span></div>
         {% block content %}{% endblock %}
     </div>
 
+    <script src="{% static 'js/stolben-ui.js' %}"></script>
     {% block extra_js %}{% endblock %}
 </body>
 </html>

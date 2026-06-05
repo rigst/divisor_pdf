@@ -1,0 +1,220 @@
+/* =================================================================
+   Stölben UI — Design System
+   Tema "Infra Premium": blocos escuros arredondados + acento azul,
+   tipografia Manrope/Inter, cards bento, glow e linhas de grade.
+   Framework-agnóstico (CSS puro). Prefixo de classes: .ds-
+   Importe em qualquer app web:  <link rel="stylesheet" href="stolben-ui.css">
+   Fontes (no <head>):
+   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Manrope:wght@400;500;600;700&display=swap" rel="stylesheet">
+   ================================================================= */
+
+:root {
+  /* ---- Cores: superfícies ---- */
+  --ds-bg: #eef0f4;          /* fundo da página */
+  --ds-panel: #f7f8fa;       /* painel/shell */
+  --ds-surface: #ffffff;     /* cards claros */
+  --ds-ink: #0f1115;         /* blocos escuros */
+  --ds-ink-deep: #050505;    /* preto profundo */
+
+  /* ---- Cores: acento azul ---- */
+  --ds-blue: #2563eb;
+  --ds-blue-light: #3b82f6;
+  --ds-blue-dark: #1d4ed8;
+  --ds-blue-50: #eff4ff;
+  --ds-blue-100: #dbe6ff;
+
+  /* ---- Cores: estados ---- */
+  --ds-warn: #fbbf24;        /* "em desenvolvimento" / atenção */
+  --ds-warn-soft: rgba(251, 191, 36, 0.1);
+
+  /* ---- Texto ---- */
+  --ds-text-900: #111827;
+  --ds-text-700: #374151;
+  --ds-text-500: #6b7280;
+  --ds-text-400: #9ca3af;
+
+  /* ---- Texto sobre fundo escuro ---- */
+  --ds-on-dark: #ffffff;
+  --ds-on-dark-soft: #9aa3b2;
+  --ds-on-dark-mute: #cbd2dc;
+
+  /* ---- Linhas e bordas ---- */
+  --ds-line: #e7e9ee;
+  --ds-line-dash: #cfd3da;
+  --ds-border-dark: rgba(255, 255, 255, 0.1);
+
+  /* ---- Tipografia ---- */
+  --ds-font-sans: "Inter", system-ui, -apple-system, sans-serif;
+  --ds-font-display: "Manrope", "Inter", sans-serif;
+  /* escala fluida para títulos */
+  --ds-fs-hero: clamp(2.6rem, 6vw, 4.5rem);
+  --ds-fs-h2: clamp(2rem, 4vw, 3rem);
+  --ds-fs-h3: 1.25rem;
+  --ds-tracking-tight: -0.035em;
+  --ds-tracking-tighter: -0.04em;
+
+  /* ---- Raios ---- */
+  --ds-radius-xl: 2.5rem;    /* seções/hero */
+  --ds-radius-lg: 1.5rem;    /* cards */
+  --ds-radius-md: 1rem;      /* inputs/botões internos */
+  --ds-radius-pill: 999px;
+
+  /* ---- Espaçamento base (escala de 4px) ---- */
+  --ds-space-1: 0.25rem;
+  --ds-space-2: 0.5rem;
+  --ds-space-3: 0.75rem;
+  --ds-space-4: 1rem;
+  --ds-space-6: 1.5rem;
+  --ds-space-8: 2rem;
+  --ds-space-12: 3rem;
+  --ds-space-16: 4rem;
+
+  /* ---- Sombras ---- */
+  --ds-shadow-card: 0 20px 40px rgba(0, 0, 0, 0.05);
+  --ds-shadow-block: 0 30px 60px rgba(15, 17, 21, 0.18);
+  --ds-shadow-glow-blue: 0 0 22px rgba(37, 99, 235, 0.3);
+
+  /* ---- Efeitos ---- */
+  --ds-blur: blur(14px);
+  --ds-ease: cubic-bezier(0.22, 0.61, 0.36, 1);
+  --ds-noise: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.5'/%3E%3C/svg%3E");
+}
+
+/* =================================================================
+   BASE
+   ================================================================= */
+.ds-root { font-family: var(--ds-font-sans); color: var(--ds-text-900); background: var(--ds-bg); line-height: 1.6; -webkit-font-smoothing: antialiased; }
+.ds-display { font-family: var(--ds-font-display); font-weight: 500; letter-spacing: var(--ds-tracking-tighter); }
+.ds-h1 { font-family: var(--ds-font-display); font-weight: 500; font-size: var(--ds-fs-hero); line-height: 1.05; letter-spacing: var(--ds-tracking-tighter); }
+.ds-h2 { font-family: var(--ds-font-display); font-weight: 500; font-size: var(--ds-fs-h2); line-height: 1.05; letter-spacing: var(--ds-tracking-tight); }
+.ds-muted { color: var(--ds-text-400); }            /* segunda linha de título em cinza */
+.ds-eyebrow { font-size: 0.85rem; color: var(--ds-text-500); }
+.ds-kicker { font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.18em; color: var(--ds-text-400); }
+
+/* =================================================================
+   LAYOUT — shell com linhas de grade tracejadas
+   <div class="ds-shell"><div class="ds-lines">…</div><main class="ds-stack">…</main></div>
+   ================================================================= */
+.ds-shell {
+  position: relative; max-width: 80rem; margin: 0 auto; min-height: 100vh;
+  background: var(--ds-panel);
+  border-left: 1px dashed var(--ds-line-dash);
+  border-right: 1px dashed var(--ds-line-dash);
+  overflow: hidden;
+}
+.ds-lines { position: absolute; inset: 0; display: flex; justify-content: space-between; padding: 0 1rem; opacity: 0.2; pointer-events: none; z-index: 0; }
+.ds-lines > span { width: 1px; background: #cbd0d8; }
+.ds-stack { position: relative; z-index: 2; padding: var(--ds-space-6); display: flex; flex-direction: column; gap: var(--ds-space-6); }
+
+/* =================================================================
+   SUPERFÍCIES
+   ================================================================= */
+.ds-panel-dark { position: relative; border-radius: var(--ds-radius-xl); overflow: hidden; background: var(--ds-ink); color: var(--ds-on-dark); box-shadow: var(--ds-shadow-block); }
+.ds-card { background: var(--ds-surface); border: 1px solid var(--ds-line); border-radius: var(--ds-radius-lg); padding: var(--ds-space-8); transition: box-shadow 400ms ease; }
+.ds-card:hover { box-shadow: var(--ds-shadow-card); }
+.ds-card-dark { background: var(--ds-ink); color: var(--ds-on-dark); border-radius: var(--ds-radius-lg); padding: var(--ds-space-8); }
+
+/* Utilitários de atmosfera (coloque dentro de um bloco position:relative) */
+.ds-glow { position: absolute; border-radius: 50%; filter: blur(120px); pointer-events: none; background: rgba(37, 99, 235, 0.18); width: 30rem; height: 30rem; }
+.ds-noise { position: absolute; inset: 0; background-image: var(--ds-noise); opacity: 0.15; mix-blend-mode: soft-light; pointer-events: none; }
+
+/* Imagem de fundo para painel escuro. Prefira FOTO REAL (não render/IA),
+   sempre escurecida por um gradiente para manter o texto legível.
+   Estrutura:
+   <div class="ds-panel-dark" style="position:relative">
+     <div class="ds-media"><img src="…"><div class="ds-media-grad"></div></div>
+     <div style="position:relative; z-index:2"> … conteúdo … </div>
+   </div> */
+.ds-media { position: absolute; inset: 0; z-index: 0; background: var(--ds-ink); }
+.ds-media img { width: 100%; height: 100%; object-fit: cover; opacity: 0.5; }
+.ds-media-grad { position: absolute; inset: 0; background: linear-gradient(to top, var(--ds-ink) 8%, rgba(15, 17, 21, 0.55) 46%, rgba(15, 17, 21, 0.82)); }
+/* variante p/ texto à esquerda (ex.: seção de contato) */
+.ds-media-grad--left { background: linear-gradient(to right, var(--ds-ink) 22%, rgba(15, 17, 21, 0.72) 58%, rgba(15, 17, 21, 0.5)); }
+
+/* =================================================================
+   NAV — pílula flutuante (use sobre fundo escuro; .is-scrolled p/ fundo claro)
+   ================================================================= */
+.ds-nav { position: fixed; top: 0; left: 0; right: 0; z-index: 60; display: flex; justify-content: center; padding: 1.25rem 1rem; pointer-events: none; }
+.ds-nav-pill {
+  pointer-events: auto; display: flex; align-items: center; gap: 1.5rem;
+  background: rgba(255, 255, 255, 0.07); -webkit-backdrop-filter: var(--ds-blur); backdrop-filter: var(--ds-blur);
+  border: 1px solid rgba(255, 255, 255, 0.14); border-radius: var(--ds-radius-pill);
+  padding: 0.5rem 0.6rem 0.5rem 1.25rem; font-size: 0.9rem;
+  transition: background 280ms ease, border-color 280ms ease, box-shadow 280ms ease;
+}
+.ds-nav.is-scrolled .ds-nav-pill { background: rgba(15, 17, 21, 0.82); border-color: rgba(255, 255, 255, 0.08); box-shadow: 0 12px 34px rgba(0, 0, 0, 0.28); }
+.ds-nav-brand { color: #fff; font-family: var(--ds-font-display); font-weight: 600; letter-spacing: -0.02em; font-size: 0.95rem; }
+.ds-nav-links { display: flex; align-items: center; gap: 1.1rem; list-style: none; margin: 0; padding: 0; }
+.ds-nav-links a { color: var(--ds-on-dark-mute); transition: color 160ms ease; }
+.ds-nav-links a:hover, .ds-nav-links a[aria-current], .ds-nav-links a.is-active { color: #fff; }
+
+/* =================================================================
+   BOTÕES
+   ================================================================= */
+.ds-btn { display: inline-flex; align-items: center; gap: 0.6rem; font-weight: 500; font-size: 1rem; border: 0; border-radius: var(--ds-radius-pill); cursor: pointer; transition: background 180ms ease, transform 180ms ease, filter 180ms ease; text-decoration: none; }
+.ds-btn svg { width: 1.05rem; height: 1.05rem; }
+/* branco sobre escuro, com ícone circular */
+.ds-btn--primary { background: #fff; color: #000; padding: 0.5rem 0.5rem 0.5rem 1.25rem; }
+.ds-btn--primary:hover { background: var(--ds-blue-50); }
+.ds-btn--primary .ds-btn-ico { display: inline-flex; align-items: center; justify-content: center; width: 2rem; height: 2rem; border-radius: var(--ds-radius-pill); background: #000; color: #fff; transition: transform 200ms ease; }
+.ds-btn--primary:hover .ds-btn-ico { transform: scale(1.08); }
+/* fantasma sobre escuro */
+.ds-btn--ghost { background: rgba(255, 255, 255, 0.06); color: #fff; border: 1px solid rgba(255, 255, 255, 0.12); padding: 0.75rem 1.5rem; }
+.ds-btn--ghost:hover { background: rgba(255, 255, 255, 0.12); }
+/* sólido azul (CTA principal / submit) */
+.ds-btn--solid { background: var(--ds-blue); color: #fff; padding: 0.85rem 1.25rem; border-radius: var(--ds-radius-md); font-size: 0.95rem; justify-content: center; box-shadow: var(--ds-shadow-glow-blue); }
+.ds-btn--solid:hover { background: var(--ds-blue-dark); }
+.ds-nav-cta { background: #fff; color: #000; padding: 0.45rem 1.1rem; border-radius: var(--ds-radius-pill); font-weight: 500; text-decoration: none; transition: background 160ms ease; }
+.ds-nav-cta:hover { background: var(--ds-blue-50); }
+
+/* =================================================================
+   BADGES, TAGS, CHIPS
+   ================================================================= */
+.ds-badge { display: inline-flex; align-items: center; gap: 0.4rem; font-size: 0.7rem; padding: 0.25rem 0.65rem; border-radius: var(--ds-radius-pill); }
+.ds-badge .ds-dot { width: 0.4rem; height: 0.4rem; border-radius: 50%; }
+.ds-badge--info { color: var(--ds-blue-dark); background: var(--ds-blue-50); border: 1px solid var(--ds-blue-100); }
+.ds-badge--info-dark { color: #93c5fd; background: rgba(59, 130, 246, 0.12); border: 1px solid rgba(59, 130, 246, 0.3); }
+.ds-badge--info-dark .ds-dot { background: var(--ds-blue-light); }
+.ds-badge--warn { color: #fcd34d; background: var(--ds-warn-soft); border: 1px solid rgba(251, 191, 36, 0.3); }
+.ds-badge--warn .ds-dot { background: var(--ds-warn); }
+
+.ds-tags { display: flex; flex-wrap: wrap; gap: 0.4rem; list-style: none; margin: 0; padding: 0; }
+.ds-tags li { font-size: 0.72rem; padding: 0.25rem 0.7rem; border-radius: var(--ds-radius-pill); color: var(--ds-text-700); background: #f3f4f6; border: 1px solid var(--ds-line); }
+.ds-tags--on-dark li { color: #d1d5db; background: rgba(255, 255, 255, 0.05); border-color: rgba(255, 255, 255, 0.1); }
+
+.ds-chip { font-size: 0.9rem; color: var(--ds-text-700); background: #f3f4f6; border: 1px solid var(--ds-line); padding: 0.4rem 0.85rem; border-radius: 0.6rem; }
+
+/* =================================================================
+   ÍCONE EM CAIXA (feature/pilar)
+   ================================================================= */
+.ds-icon-box { width: 3rem; height: 3rem; border-radius: var(--ds-radius-md); background: var(--ds-blue-50); border: 1px solid var(--ds-blue-100); display: flex; align-items: center; justify-content: center; color: var(--ds-blue); transition: transform 300ms ease; }
+.ds-icon-box svg { width: 1.5rem; height: 1.5rem; }
+.ds-icon-box--round { border-radius: var(--ds-radius-pill); width: 2.25rem; height: 2.25rem; }
+.ds-icon-box--round svg { width: 1.1rem; height: 1.1rem; }
+
+/* =================================================================
+   FORMULÁRIO (sobre fundo escuro)
+   ================================================================= */
+.ds-form { background: rgba(255, 255, 255, 0.03); border: 1px solid rgba(255, 255, 255, 0.1); border-radius: var(--ds-radius-lg); padding: var(--ds-space-8); display: flex; flex-direction: column; gap: 1.25rem; -webkit-backdrop-filter: blur(8px); backdrop-filter: blur(8px); }
+.ds-field { display: block; font-size: 0.9rem; color: var(--ds-text-400); }
+.ds-field > span { display: block; margin-bottom: 0.5rem; }
+.ds-input, .ds-textarea { width: 100%; background: rgba(255, 255, 255, 0.05); border: 1px solid rgba(255, 255, 255, 0.1); border-radius: var(--ds-radius-md); padding: 0.8rem 1rem; color: #fff; font-family: inherit; font-size: 0.95rem; transition: border-color 160ms ease; }
+.ds-input::placeholder, .ds-textarea::placeholder { color: #6b7280; }
+.ds-input:focus, .ds-textarea:focus { outline: none; border-color: rgba(59, 130, 246, 0.5); }
+.ds-textarea { resize: vertical; min-height: 7rem; }
+
+/* =================================================================
+   REVELAR AO ROLAR (adicione .ds-reveal; um observer alterna .is-visible)
+   ================================================================= */
+.ds-reveal { opacity: 0; transform: translateY(26px); transition: opacity 720ms var(--ds-ease), transform 720ms var(--ds-ease); will-change: opacity, transform; }
+.ds-reveal.is-visible { opacity: 1; transform: none; }
+
+/* =================================================================
+   ACESSIBILIDADE
+   ================================================================= */
+.ds-root :focus-visible, a:focus-visible, button:focus-visible, input:focus-visible, textarea:focus-visible { outline: 2px solid var(--ds-blue-light); outline-offset: 2px; }
+
+@media (prefers-reduced-motion: reduce) {
+  .ds-reveal { opacity: 1; transform: none; transition: none; }
+  * { scroll-behavior: auto; }
+}
