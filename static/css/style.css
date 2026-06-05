@@ -1018,3 +1018,70 @@ body {
         grid-template-columns: 1fr;
     }
 }
+
+/* =====================================================================
+   Camada de identidade — Stölben UI (tema "Infra Premium")
+   Acrescentada por cima do tema base; NÃO altera classes/IDs do app.js.
+   Ver: site stolben.com /design-system
+   ===================================================================== */
+:root {
+    --font-display: 'Manrope', 'Inter', sans-serif;
+    --ink: #0f1115;
+}
+
+/* Hero header: painel escuro arredondado, com glow e grade sutil */
+.header {
+    position: relative;
+    overflow: hidden;
+    margin: var(--space-md) 0 var(--space-xl);
+    padding: var(--space-2xl) var(--space-xl);
+    background: var(--ink);
+    border-radius: 28px;
+    color: #fff;
+    box-shadow: 0 30px 60px rgba(15, 17, 21, 0.18);
+}
+.header::before {
+    content: "";
+    position: absolute;
+    top: -8rem;
+    left: -6rem;
+    width: 32rem;
+    height: 32rem;
+    background: radial-gradient(circle, rgba(37, 99, 235, 0.18), transparent 70%);
+    filter: blur(50px);
+    pointer-events: none;
+}
+.header::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    background-image:
+        linear-gradient(rgba(255, 255, 255, 0.045) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(255, 255, 255, 0.045) 1px, transparent 1px);
+    background-size: 56px 56px;
+    -webkit-mask-image: radial-gradient(120% 95% at 30% 0%, #000 22%, transparent 72%);
+    mask-image: radial-gradient(120% 95% at 30% 0%, #000 22%, transparent 72%);
+    pointer-events: none;
+}
+.header-content { position: relative; z-index: 2; }
+
+.product-eyebrow {
+    color: #93c5fd;
+    background: rgba(59, 130, 246, 0.12);
+    border-color: rgba(59, 130, 246, 0.3);
+}
+
+.logo-text { font-family: var(--font-display); font-weight: 600; color: #fff; letter-spacing: -0.03em; }
+.logo-accent { color: #60a5fa; }
+.header-subtitle { color: #9aa3b2; }
+
+/* Títulos de seção em Manrope (display) */
+.card-header h2,
+#processing-title { font-family: var(--font-display); font-weight: 600; letter-spacing: -0.02em; }
+
+/* Cartões um pouco mais arredondados, no tom do site */
+.card { border-radius: 20px; }
+
+/* Rodapé enxuto, com filete de divisão */
+.footer { border-top: 1px solid var(--border); margin-top: var(--space-2xl); }
+
