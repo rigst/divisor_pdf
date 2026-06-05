@@ -13,7 +13,8 @@
   --ds-bg: #eef0f4;          /* fundo da página */
   --ds-panel: #f7f8fa;       /* painel/shell */
   --ds-surface: #ffffff;     /* cards claros */
-  --ds-ink: #0f1115;         /* blocos escuros */
+  --ds-ink: #0f1115;         /* blocos escuros (hero, painéis fortes) */
+  --ds-ink-soft: #20242d;    /* dark suave p/ áreas interativas (dropzone, console) */
   --ds-ink-deep: #050505;    /* preto profundo */
 
   /* ---- Cores: acento azul ---- */
@@ -210,11 +211,110 @@
 .ds-reveal.is-visible { opacity: 1; transform: none; }
 
 /* =================================================================
+   CONSOLE ESCURO — painel para formulários/opções DENTRO de um
+   cartão claro. Cria o contraste claro↔escuro do tema sem empilhar
+   dois blocos escuros. Inputs reutilizam .ds-input/.ds-textarea.
+   ================================================================= */
+.ds-console { background: var(--ds-ink-soft); color: var(--ds-on-dark); border: 1px solid var(--ds-border-dark); border-radius: var(--ds-radius-md); padding: var(--ds-space-6); }
+.ds-console .ds-label { display: flex; align-items: center; gap: 0.5rem; color: var(--ds-on-dark); font-weight: 600; font-size: 0.95rem; }
+.ds-console .ds-label svg { width: 1.1rem; height: 1.1rem; color: var(--ds-blue-light); }
+
+/* =================================================================
+   DROP ZONE — área de upload (arrastar/soltar), escura e tracejada.
+   Marque .is-drag durante o arraste.
+   ================================================================= */
+.ds-dropzone {
+  position: relative; display: block; width: 100%; text-align: center; cursor: pointer;
+  border: 1.5px dashed rgba(255, 255, 255, 0.18); border-radius: var(--ds-radius-md);
+  padding: var(--ds-space-12) var(--ds-space-8); color: var(--ds-on-dark);
+  background: radial-gradient(120% 90% at 50% -10%, rgba(37, 99, 235, 0.16), transparent 62%), var(--ds-ink-soft);
+  transition: border-color 200ms var(--ds-ease), background 200ms var(--ds-ease), box-shadow 200ms var(--ds-ease);
+}
+.ds-dropzone:hover, .ds-dropzone:focus-visible, .ds-dropzone.is-drag {
+  border-color: var(--ds-blue-light);
+  background: radial-gradient(120% 90% at 50% -10%, rgba(37, 99, 235, 0.26), transparent 62%), var(--ds-ink-soft);
+}
+.ds-dropzone.is-drag { box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.2); }
+.ds-dropzone-hint { color: var(--ds-on-dark-soft); font-size: 0.85rem; }
+
+/* =================================================================
+   CHOICE — cartões selecionáveis (radio/checkbox estilizados),
+   variante escura. Marque .is-selected no item ativo.
+   ================================================================= */
+.ds-choice-grid { display: grid; gap: 0.65rem; }
+.ds-choice {
+  position: relative; display: block; cursor: pointer; color: var(--ds-on-dark);
+  padding: var(--ds-space-4); padding-right: 2.25rem;
+  background: rgba(255, 255, 255, 0.04); border: 1.5px solid rgba(255, 255, 255, 0.1); border-radius: var(--ds-radius-md);
+  transition: border-color 200ms var(--ds-ease), background 200ms var(--ds-ease), box-shadow 200ms var(--ds-ease);
+}
+.ds-choice:hover { background: rgba(255, 255, 255, 0.07); border-color: rgba(255, 255, 255, 0.2); }
+.ds-choice.is-selected { background: rgba(59, 130, 246, 0.14); border-color: var(--ds-blue-light); box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.2); }
+.ds-choice input { position: absolute; opacity: 0; pointer-events: none; }
+.ds-choice::after {
+  content: ""; position: absolute; top: var(--ds-space-4); right: var(--ds-space-4);
+  width: 1.1rem; height: 1.1rem; border-radius: 50%;
+  border: 1.5px solid rgba(255, 255, 255, 0.25); background: rgba(255, 255, 255, 0.06);
+  transition: border-color 120ms ease, background 120ms ease;
+}
+.ds-choice.is-selected::after {
+  border-color: var(--ds-blue-light);
+  background: var(--ds-blue) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%23fff' stroke-width='3.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='20 6 9 17 4 12'/%3E%3C/svg%3E") center / 0.7rem no-repeat;
+}
+.ds-choice-title { display: block; font-weight: 600; font-size: 0.9rem; }
+.ds-choice-desc { display: block; color: var(--ds-on-dark-soft); font-size: 0.78rem; line-height: 1.35; }
+
+/* =================================================================
+   SWITCH — alternador on/off.
+   <label class="ds-switch"><input type="checkbox"><span class="ds-switch-track"></span> Rótulo</label>
+   ================================================================= */
+.ds-switch { display: inline-flex; align-items: center; gap: 0.75rem; cursor: pointer; user-select: none; color: var(--ds-on-dark); }
+.ds-switch input { position: absolute; opacity: 0; pointer-events: none; }
+.ds-switch-track { position: relative; flex-shrink: 0; width: 44px; height: 24px; border-radius: var(--ds-radius-pill); background: rgba(255, 255, 255, 0.22); transition: background 200ms var(--ds-ease); }
+.ds-switch-track::before { content: ""; position: absolute; top: 3px; left: 3px; width: 18px; height: 18px; border-radius: 50%; background: #fff; transition: transform 200ms var(--ds-ease); }
+.ds-switch input:checked + .ds-switch-track { background: var(--ds-blue); }
+.ds-switch input:checked + .ds-switch-track::before { transform: translateX(20px); }
+.ds-switch input:focus-visible + .ds-switch-track { box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.3); }
+
+/* =================================================================
+   PROGRESS — barra de progresso com brilho deslizante.
+   <div class="ds-progress"><div class="ds-progress-fill" style="width:42%"></div></div>
+   ================================================================= */
+.ds-progress { width: 100%; height: 10px; border-radius: var(--ds-radius-pill); background: rgba(255, 255, 255, 0.1); overflow: hidden; box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.25); }
+.ds-progress--on-light { background: #e8edf3; box-shadow: inset 0 1px 2px rgba(15, 23, 42, 0.06); }
+.ds-progress-fill { position: relative; height: 100%; width: 0; border-radius: var(--ds-radius-pill); background: linear-gradient(90deg, var(--ds-blue-dark), var(--ds-blue-light)); box-shadow: 0 0 14px rgba(37, 99, 235, 0.45); transition: width 0.4s ease; overflow: hidden; }
+.ds-progress-fill::after { content: ""; position: absolute; inset: 0; background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.35), transparent); transform: translateX(-100%); animation: ds-progress-shimmer 1.4s var(--ds-ease) infinite; }
+@keyframes ds-progress-shimmer { to { transform: translateX(100%); } }
+
+/* =================================================================
+   STAT STRIP — linha de métricas/destaques (ex.: sob um hero).
+   Use .ds-stat-strip--on-dark sobre fundo escuro.
+   ================================================================= */
+.ds-stat-strip { list-style: none; display: flex; flex-wrap: wrap; gap: var(--ds-space-8); margin: 0; padding: 0; }
+.ds-stat-strip li { display: flex; flex-direction: column; gap: 0.1rem; }
+.ds-stat-strip strong { font-family: var(--ds-font-display); font-weight: 600; font-size: 1.15rem; letter-spacing: var(--ds-tracking-tight); }
+.ds-stat-strip span { font-size: 0.8rem; color: var(--ds-text-500); }
+.ds-stat-strip--on-dark strong { color: var(--ds-on-dark); }
+.ds-stat-strip--on-dark span { color: var(--ds-on-dark-soft); }
+
+/* =================================================================
+   FOOTER — claro e enxuto, com borda superior (NÃO use bloco escuro:
+   o rodapé fecha a página de forma leve, como no site).
+   ================================================================= */
+.ds-footer { padding: var(--ds-space-8) var(--ds-space-2); border-top: 1px solid var(--ds-line); }
+.ds-footer-inner { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: var(--ds-space-4); }
+.ds-footer-brand { font-family: var(--ds-font-display); font-weight: 600; font-size: 1.1rem; color: var(--ds-text-900); letter-spacing: -0.02em; }
+.ds-footer-copy { color: var(--ds-text-400); font-size: 0.85rem; margin-top: 0.15rem; }
+.ds-footer a { color: var(--ds-blue-dark); text-decoration: none; }
+.ds-footer a:hover { text-decoration: underline; }
+
+/* =================================================================
    ACESSIBILIDADE
    ================================================================= */
 .ds-root :focus-visible, a:focus-visible, button:focus-visible, input:focus-visible, textarea:focus-visible { outline: 2px solid var(--ds-blue-light); outline-offset: 2px; }
 
 @media (prefers-reduced-motion: reduce) {
   .ds-reveal { opacity: 1; transform: none; transition: none; }
+  .ds-progress-fill::after { animation: none; }
   * { scroll-behavior: auto; }
 }

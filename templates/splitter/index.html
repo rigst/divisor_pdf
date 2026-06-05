@@ -7,26 +7,64 @@
 <header class="ds-nav" id="site-nav">
     <nav class="ds-nav-pill" aria-label="Navegação principal">
         <a class="ds-nav-brand" href="/">Divisor<span class="logo-accent">PDF</span></a>
-        <ul class="ds-nav-links">
-            <li><a href="#upload-section">Dividir PDF</a></li>
-        </ul>
         <a class="ds-nav-cta" href="https://stolben.com/" target="_blank" rel="noreferrer">Stölben ↗</a>
     </nav>
 </header>
 
 <main class="ds-stack main-content">
-    <!-- Hero -->
-    <header class="header ds-panel-dark">
+    <!-- Hero (variação: gradiente à esquerda, conteúdo centralizado + meta-stats) -->
+    <header class="header ds-panel-dark ds-reveal">
+        <div class="header-media" aria-hidden="true">
+            <img src="{% static 'img/hero-archive.jpg' %}" alt="" loading="eager">
+            <div class="header-grad"></div>
+        </div>
         <div class="ds-glow" aria-hidden="true"></div>
         <div class="ds-noise" aria-hidden="true"></div>
         <div class="header-content">
-            <span class="ds-badge ds-badge--info-dark"><span class="ds-dot"></span> Processamento seguro de documentos</span>
-            <h1 class="logo-text ds-h1">Divida e comprima <br><span class="ds-muted">seus PDFs em segundos.</span></h1>
-            <p class="header-subtitle">Comprima e divida documentos PDF extensos em arquivos otimizados, prontos para distribuição — direto no navegador, sem instalar nada.</p>
+            <h1 class="logo-text ds-h1">Arquivos grandes <br><span class="ds-muted">divididos em segundos.</span></h1>
+            <p class="header-subtitle">Comprima e divida PDFs extensos em partes otimizadas e prontas para distribuição — direto no navegador, sem instalar nada e sem repassar a terceiros.</p>
+            <ul class="header-meta">
+                <li><strong>≤ {{ max_upload_size_mb }} MB</strong><span>por arquivo</span></li>
+                <li><strong>ZIP único</strong><span>pronto para enviar</span></li>
+                <li><strong>0 instalações</strong><span>roda no navegador</span></li>
+            </ul>
         </div>
     </header>
+
+    <!-- Pilares / diferenciais -->
+    <section id="features" class="feature-band ds-reveal">
+        <div class="ds-noise" aria-hidden="true"></div>
+        <div class="feature-band-head">
+            <span class="ds-kicker">/ Por que usar</span>
+            <h2 class="ds-h2 ds-display">Rápido, privado <span class="ds-muted">e sem complicação.</span></h2>
+        </div>
+        <div class="feature-grid">
+            <article class="feature reveal-child">
+                <span class="ds-icon-box">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2"></rect><path d="M7 11V7a5 5 0 0 1 10 0v4"></path></svg>
+                </span>
+                <h3>Privado por padrão</h3>
+                <p>Processamento no nosso servidor, sem repassar a terceiros. Os arquivos são removidos automaticamente após 1 hora.</p>
+            </article>
+            <article class="feature reveal-child">
+                <span class="ds-icon-box">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><polyline points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"></polyline></svg>
+                </span>
+                <h3>Divisão e compressão</h3>
+                <p>Defina o tamanho máximo por arquivo e o nível de compressão. Receba tudo em um único ZIP, pronto para enviar.</p>
+            </article>
+            <article class="feature reveal-child">
+                <span class="ds-icon-box">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline></svg>
+                </span>
+                <h3>Sem instalar nada</h3>
+                <p>Tudo acontece no navegador, com previsão de tempo em tempo real. Arraste, ajuste e baixe — em qualquer dispositivo.</p>
+            </article>
+        </div>
+    </section>
+
     <!-- Upload Section -->
-    <section id="upload-section" class="card card-upload">
+    <section id="upload-section" class="card card-upload ds-reveal">
         <div class="card-header">
             <div class="card-icon">
                 <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -35,7 +73,10 @@
                     <line x1="12" y1="3" x2="12" y2="15"/>
                 </svg>
             </div>
-            <h2>Upload de PDFs</h2>
+            <div class="card-head-text">
+                <span class="ds-kicker">Passo único</span>
+                <h2>Envie seus PDFs</h2>
+            </div>
         </div>
 
         <form
@@ -217,7 +258,10 @@
                     <line x1="16.24" y1="7.76" x2="19.07" y2="4.93"/>
                 </svg>
             </div>
-            <h2 id="processing-title">Enviando...</h2>
+            <div class="card-head-text">
+                <span class="ds-kicker">Em andamento</span>
+                <h2 id="processing-title">Enviando...</h2>
+            </div>
         </div>
 
         <!-- Fase 1: Envio dos Arquivos -->
@@ -256,7 +300,10 @@
                     <polyline points="22 4 12 14.01 9 11.01"/>
                 </svg>
             </div>
-            <h2>Divisão Concluída!</h2>
+            <div class="card-head-text">
+                <span class="ds-kicker">Pronto</span>
+                <h2>Divisão concluída!</h2>
+            </div>
         </div>
 
         <div class="result-stats">
@@ -319,7 +366,10 @@
                     <line x1="9" y1="9" x2="15" y2="15"/>
                 </svg>
             </div>
-            <h2>Erro no Processamento</h2>
+            <div class="card-head-text">
+                <span class="ds-kicker">Falha</span>
+                <h2>Erro no processamento</h2>
+            </div>
         </div>
         <p id="error-message" class="error-message"></p>
         <button type="button" id="retry-btn" class="btn btn-secondary">
@@ -332,9 +382,17 @@
     </section>
 
     <footer class="footer">
-        <p class="footer-brand">Divisor<span class="logo-accent">PDF</span></p>
-        <p>Seus arquivos são processados com segurança e removidos automaticamente. <br>
-           Um app <a href="https://stolben.com/" target="_blank" rel="noreferrer">Stölben</a> · &copy; 2026</p>
+        <div class="footer-inner">
+            <div class="footer-brand-block">
+                <p class="footer-brand">Divisor<span class="logo-accent">PDF</span></p>
+                <p class="footer-copy">Um app <a href="https://stolben.com/" target="_blank" rel="noreferrer">Stölben</a> · &copy; 2026</p>
+            </div>
+            <ul class="footer-points">
+                <li><span class="footer-dot"></span> Sem cadastro</li>
+                <li><span class="footer-dot"></span> Apagados em 1h</li>
+                <li><span class="footer-dot"></span> Processamento próprio</li>
+            </ul>
+        </div>
     </footer>
 </main>
 

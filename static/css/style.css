@@ -86,56 +86,173 @@ html {
 }
 
 .main-content {
-    /* ds-stack já fornece padding + gap; só acrescentamos respiro p/ a nav fixa */
-    padding-top: 5.5rem;
+    /* ds-stack já fornece padding + gap. O hero fica sob a nav fixa
+       (área escura), então não há vão claro que prejudique a leitura. */
     gap: var(--space-lg);
 }
 
 /* ---------- Nav (pílula do DS) ---------- */
 
+/* Fundo escuro translúcido por padrão: garante texto branco legível
+   sobre qualquer região da foto do hero (corrige "branco sobre branco"). */
+#site-nav .ds-nav-pill {
+    background: rgba(15, 17, 21, 0.42);
+    border-color: rgba(255, 255, 255, 0.12);
+    -webkit-backdrop-filter: blur(16px);
+    backdrop-filter: blur(16px);
+}
+#site-nav.is-scrolled .ds-nav-pill { background: rgba(15, 17, 21, 0.86); }
+
 .ds-nav-brand .logo-accent { color: var(--ds-blue-light); }
+.ds-nav-brand, .ds-nav-links a { text-decoration: none; }
 .ds-nav-links a { font-size: 0.88rem; }
 
-/* ---------- Hero (painel escuro do DS) ---------- */
+/* ---------- Hero (painel escuro do DS, com foto real) ---------- */
 
 .header {
-    padding: var(--space-2xl) var(--space-xl);
+    display: flex;
+    flex-direction: column;
+    justify-content: center;      /* variação: conteúdo centralizado (portfólio é bottom) */
+    min-height: 34rem;
+    padding: 6rem var(--space-2xl) var(--space-2xl);
 }
 
-.header .ds-glow { top: -10rem; left: -6rem; }
+/* Foto de fundo escurecida (assinatura do tema) */
+.header-media { position: absolute; inset: 0; z-index: 0; background: var(--ds-ink); }
+.header-media img { width: 100%; height: 100%; object-fit: cover; opacity: 0.66; }
+/* Variação vs portfólio: gradiente para a DIREITA (texto à esquerda),
+   mais leve (hero um pouco mais claro), com leve escurecimento no topo p/ a nav. */
+.header-grad {
+    position: absolute;
+    inset: 0;
+    background:
+        linear-gradient(to right, var(--ds-ink) 18%, rgba(15, 17, 21, 0.58) 54%, rgba(15, 17, 21, 0.25)),
+        linear-gradient(to bottom, rgba(15, 17, 21, 0.5), transparent 24%);
+}
+
+.header .ds-glow { top: -8rem; left: -4rem; width: 32rem; height: 32rem; }
+.header .ds-noise { opacity: 0.06; }
 
 .header-content {
     position: relative;
-    z-index: 2;
+    z-index: 3;
     display: flex;
     flex-direction: column;
     align-items: flex-start;
     gap: var(--space-md);
+    max-width: 40rem;
 }
 
 .logo-text {
-    font-size: clamp(2rem, 5vw, 3.1rem);
+    font-size: clamp(2.2rem, 5.5vw, 3.6rem);
     color: var(--ds-on-dark);
+    margin-top: var(--space-xs);
 }
 
 .logo-accent { color: var(--ds-blue-light); }
 
 .header-subtitle {
-    max-width: 46ch;
-    color: var(--ds-on-dark-soft);
-    font-size: 1.02rem;
-    line-height: 1.6;
+    max-width: 44ch;
+    color: var(--ds-on-dark-mute);
+    font-size: 1.05rem;
+    line-height: 1.65;
 }
+
+/* Linha de meta-stats — elemento exclusivo deste hero (não existe no portfólio) */
+.header-meta {
+    list-style: none;
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--space-xl);
+    margin-top: var(--space-lg);
+    padding-top: var(--space-lg);
+    border-top: 1px solid var(--ds-border-dark);
+}
+.header-meta li { display: flex; flex-direction: column; gap: 0.1rem; }
+.header-meta strong {
+    font-family: var(--font-display);
+    font-size: 1.15rem;
+    font-weight: 600;
+    color: var(--ds-on-dark);
+    letter-spacing: var(--ds-tracking-tight);
+}
+.header-meta span { color: var(--ds-on-dark-soft); font-size: 0.8rem; }
+
+/* ---------- Faixa de pilares / diferenciais ---------- */
+
+.feature-band {
+    position: relative;
+    overflow: hidden;
+    background: rgba(255, 255, 255, 0.55);
+    border: 1px solid var(--border);
+    border-radius: var(--r-lg);
+    padding: var(--space-2xl) var(--space-xl);
+}
+
+.feature-band .ds-noise { opacity: 0.1; }
+
+.feature-band-head {
+    position: relative;
+    z-index: 2;
+    margin-bottom: var(--space-xl);
+}
+
+.feature-band-head .ds-kicker { color: var(--brand); display: block; margin-bottom: var(--space-sm); }
+.feature-band-head h2 { font-size: clamp(1.6rem, 3.6vw, 2.3rem); color: var(--text); }
+
+.feature-grid {
+    position: relative;
+    z-index: 2;
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: var(--space-xl);
+}
+
+.feature .ds-icon-box { margin-bottom: var(--space-md); }
+.feature:hover .ds-icon-box { transform: scale(1.08); }
+.feature h3 {
+    font-family: var(--font-display);
+    font-size: 1.08rem;
+    font-weight: 600;
+    letter-spacing: var(--ds-tracking-tight);
+    color: var(--text);
+    margin-bottom: var(--space-xs);
+}
+.feature p { color: var(--text-3); font-size: 0.92rem; line-height: 1.6; }
+
+/* Stagger dentro da grade de pilares (revelado junto com a faixa) */
+.feature-band.is-visible .reveal-child { animation: fade-in-up 620ms var(--ds-ease) both; }
+.feature-band.is-visible .reveal-child:nth-child(2) { animation-delay: 100ms; }
+.feature-band.is-visible .reveal-child:nth-child(3) { animation-delay: 200ms; }
+
+/* ---------- Cabeçalho de cartão (com kicker) ---------- */
+
+.card-head-text { display: flex; flex-direction: column; gap: 0.1rem; }
+.card-head-text .ds-kicker { color: var(--brand); }
 
 /* ---------- Cartões ---------- */
 
 .card {
+    position: relative;
     background: var(--surface);
     border: 1px solid var(--border);
     border-radius: var(--r-lg);
     padding: var(--space-xl);
     box-shadow: var(--shadow-sm);
     transition: box-shadow 400ms ease;
+}
+
+/* Fina barra de acento azul no topo do cartão principal */
+.card-upload::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 1.5rem;
+    right: 1.5rem;
+    height: 2px;
+    border-radius: 0 0 var(--ds-radius-pill) var(--ds-radius-pill);
+    background: linear-gradient(90deg, transparent, var(--brand), transparent);
+    opacity: 0.7;
 }
 
 .card-header {
@@ -173,10 +290,13 @@ html {
 /* ---------- Drop zone ---------- */
 
 .drop-zone {
+    position: relative;
     border: 1.5px dashed var(--border-strong);
     border-radius: var(--r-md);
     padding: var(--space-2xl) var(--space-xl);
-    background: var(--surface-alt);
+    background:
+        radial-gradient(120% 90% at 50% -10%, var(--ds-blue-50), transparent 60%),
+        var(--surface-alt);
     text-align: center;
     cursor: pointer;
     transition: border-color var(--transition-base), background var(--transition-base), box-shadow var(--transition-base);
@@ -193,10 +313,23 @@ html {
 .drop-zone.drag-over { box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.18); }
 
 .drop-zone-icon {
+    width: 4rem;
+    height: 4rem;
+    margin: 0 auto var(--space-md);
+    border-radius: var(--ds-radius-pill);
+    background: var(--ds-blue-50);
+    border: 1px solid var(--ds-blue-100);
     color: var(--brand);
-    margin-bottom: var(--space-md);
-    opacity: 0.9;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: transform var(--transition-base);
 }
+
+.drop-zone:hover .drop-zone-icon,
+.drop-zone.drag-over .drop-zone-icon { transform: scale(1.06); }
+
+.drop-zone-icon svg { width: 2rem; height: 2rem; }
 
 .drop-zone-text {
     color: var(--text);
@@ -368,6 +501,7 @@ html {
     position: relative;
     cursor: pointer;
     padding: var(--space-md);
+    padding-right: 2.25rem;
     min-height: 128px;
     background: var(--surface-alt);
     border: 1.5px solid var(--border);
@@ -384,6 +518,25 @@ html {
     border-color: var(--brand);
     background: var(--brand-soft);
     box-shadow: var(--ring);
+}
+
+/* Indicador de seleção (círculo no canto) */
+.compress-opt-card::after {
+    content: '';
+    position: absolute;
+    top: var(--space-md);
+    right: var(--space-md);
+    width: 1.1rem;
+    height: 1.1rem;
+    border-radius: 50%;
+    border: 1.5px solid var(--border-strong);
+    background: var(--surface);
+    transition: border-color var(--transition-fast), background var(--transition-fast);
+}
+
+.compress-opt-card.active::after {
+    border-color: var(--brand);
+    background: var(--brand) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%23fff' stroke-width='3.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='20 6 9 17 4 12'/%3E%3C/svg%3E") center / 0.7rem no-repeat;
 }
 
 .compress-radio-hidden {
@@ -588,14 +741,17 @@ html {
 .btn svg { width: 1.1rem; height: 1.1rem; }
 .btn:active:not(:disabled) { transform: translateY(1px); }
 
-.btn-primary {
+/* Ação principal (azul sólido — único acento, conforme o DS) */
+.btn-primary,
+.btn-download {
     margin-top: var(--space-lg);
     background: var(--brand);
     color: #ffffff;
     box-shadow: var(--ds-shadow-glow-blue);
 }
 
-.btn-primary:hover:not(:disabled) {
+.btn-primary:hover:not(:disabled),
+.btn-download:hover {
     background: var(--brand-hover);
     box-shadow: 0 0 28px rgba(37, 99, 235, 0.45);
 }
@@ -607,18 +763,9 @@ html {
     box-shadow: none;
 }
 
-.btn-download {
-    margin-bottom: var(--space-md);
-    background: var(--success);
-    color: #ffffff;
-    box-shadow: 0 0 22px rgba(22, 163, 74, 0.28);
-}
+.btn-download { margin-top: 0; margin-bottom: var(--space-md); }
 
-.btn-download:hover {
-    background: var(--success-hover);
-    box-shadow: 0 0 28px rgba(22, 163, 74, 0.42);
-}
-
+/* Ação secundária (contorno claro) */
 .btn-secondary {
     background: var(--surface);
     color: var(--text);
@@ -660,21 +807,36 @@ html {
 
 .progress-bar {
     width: 100%;
-    height: 8px;
+    height: 10px;
     background: #e8edf3;
     border-radius: var(--ds-radius-pill);
     overflow: hidden;
+    box-shadow: inset 0 1px 2px rgba(15, 23, 42, 0.06);
 }
 
 .progress-fill {
+    position: relative;
     height: 100%;
     width: 0;
-    background: var(--brand);
+    background: linear-gradient(90deg, var(--ds-blue-dark), var(--ds-blue-light));
     border-radius: var(--ds-radius-pill);
+    box-shadow: 0 0 14px rgba(37, 99, 235, 0.45);
     transition: width 0.4s ease;
+    overflow: hidden;
 }
 
-.upload-fill { background: var(--success) !important; }
+/* Brilho deslizante enquanto processa */
+.progress-fill::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.35), transparent);
+    transform: translateX(-100%);
+    animation: progress-shimmer 1.4s var(--ds-ease) infinite;
+}
+
+/* Fase de envio: azul mais claro, para diferenciar do processamento */
+.upload-fill { background: linear-gradient(90deg, var(--ds-blue-light), #60a5fa) !important; }
 
 .progress-info {
     display: flex;
@@ -708,33 +870,36 @@ html {
 /* ---------- Resultado ---------- */
 
 .result-stats {
+    position: relative;
     display: grid;
     grid-template-columns: 1fr 1fr;
-    gap: var(--space-md);
+    gap: 1px;
     margin-bottom: var(--space-xl);
+    background: var(--ds-border-dark);
+    border-radius: var(--r-md);
+    overflow: hidden;
+    box-shadow: var(--ds-shadow-block);
 }
 
 .stat {
-    padding: var(--space-lg);
+    padding: var(--space-xl) var(--space-lg);
     text-align: center;
-    background: var(--surface-alt);
-    border: 1px solid var(--border);
-    border-radius: var(--r-md);
+    background: var(--ds-ink);
 }
 
 .stat-value {
     display: block;
     margin-bottom: var(--space-xs);
     font-family: var(--font-display);
-    color: var(--brand);
-    font-size: 1.8rem;
+    color: var(--ds-blue-light);
+    font-size: 2.1rem;
     font-weight: 700;
     letter-spacing: var(--ds-tracking-tight);
     font-variant-numeric: tabular-nums;
 }
 
 .stat-label {
-    color: var(--text-3);
+    color: var(--ds-on-dark-soft);
     font-size: 0.72rem;
     font-weight: 600;
     text-transform: uppercase;
@@ -818,37 +983,99 @@ html {
 
 /* ---------- Rodapé ---------- */
 
+/* Rodapé claro e enxuto (mesmo padrão da página do portfólio) */
 .footer {
     margin-top: var(--space-md);
-    padding: var(--space-xl) var(--space-sm) var(--space-sm);
-    border-top: 1px dashed var(--border-strong);
-    text-align: center;
+    padding: var(--space-xl) var(--space-sm);
+    border-top: 1px solid var(--border);
+}
+
+.footer-inner {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--space-md);
 }
 
 .footer-brand {
     font-family: var(--font-display);
     font-weight: 600;
+    font-size: 1.1rem;
     color: var(--text);
     letter-spacing: -0.02em;
-    margin-bottom: var(--space-xs);
 }
 
-.footer p { color: var(--text-3); font-size: 0.8rem; line-height: 1.6; }
+.footer-brand .logo-accent { color: var(--ds-blue-light); }
+.footer-copy { color: var(--text-3); font-size: 0.85rem; margin-top: 0.15rem; }
+
+.footer-points {
+    list-style: none;
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--space-md);
+}
+
+.footer-points li {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--space-sm);
+    color: var(--text-3);
+    font-size: 0.8rem;
+}
+
+.footer-dot { width: 0.4rem; height: 0.4rem; border-radius: 50%; background: var(--brand); flex-shrink: 0; }
+
 .footer a { color: var(--brand-text); text-decoration: none; }
 .footer a:hover { text-decoration: underline; }
 
 /* ---------- Animações ---------- */
 
 @keyframes spin { to { transform: rotate(360deg); } }
+@keyframes progress-shimmer { to { transform: translateX(100%); } }
 @keyframes toast-in { from { opacity: 0; transform: translateY(-8px); } to { opacity: 1; transform: translateY(0); } }
 @keyframes toast-out { from { opacity: 1; transform: translateY(0); } to { opacity: 0; transform: translateY(-8px); } }
 @keyframes fade-in-up { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: translateY(0); } }
+
+/* ============================================================
+   ENVIO DE ARQUIVO — único bloco escuro (suave) do formulário.
+   As demais áreas (opções, switch, tamanho, lista) ficam CLARAS
+   para não pesar; o tema entra como contraste pontual aqui, com
+   um dark suave (--ds-ink-soft), não o preto do hero.
+   ============================================================ */
+.drop-zone {
+    background:
+        radial-gradient(120% 90% at 50% -10%, rgba(37, 99, 235, 0.16), transparent 62%),
+        var(--ds-ink-soft);
+    border-color: rgba(255, 255, 255, 0.16);
+}
+.drop-zone:hover,
+.drop-zone:focus-visible,
+.drop-zone.drag-over {
+    border-color: var(--ds-blue-light);
+    background:
+        radial-gradient(120% 90% at 50% -10%, rgba(37, 99, 235, 0.26), transparent 62%),
+        var(--ds-ink-soft);
+}
+.drop-zone-icon {
+    background: rgba(59, 130, 246, 0.16);
+    border-color: rgba(59, 130, 246, 0.34);
+    color: var(--ds-blue-light);
+}
+.drop-zone-text { color: var(--ds-on-dark); }
+.drop-zone-text span,
+.drop-zone-hint { color: var(--ds-on-dark-soft); }
 
 /* ---------- Responsivo ---------- */
 
 @media (max-width: 720px) {
     .main-content { padding-top: 4.75rem; }
     .card { padding: var(--space-lg); }
+    .header { min-height: 28rem; padding: 5rem var(--space-xl) var(--space-xl); }
+    .header-meta { gap: var(--space-lg); width: 100%; }
+    .feature-band { padding: var(--space-xl) var(--space-lg); }
+    .feature-grid { grid-template-columns: 1fr; gap: var(--space-lg); }
+    .footer-inner { flex-direction: column; align-items: flex-start; gap: var(--space-md); }
     .compress-options { grid-template-columns: 1fr 1fr; }
     .compress-opt-card { min-height: auto; }
 
@@ -876,4 +1103,10 @@ html {
 @media (max-width: 440px) {
     .compress-options { grid-template-columns: 1fr; }
     .ds-nav-links { display: none; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    html { scroll-behavior: auto; }
+    .feature-band.is-visible .reveal-child { animation: none; }
+    .progress-fill::after { animation: none; }
 }

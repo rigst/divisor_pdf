@@ -78,6 +78,28 @@ document.addEventListener('DOMContentLoaded', () => {
     const MAX_FILE_SIZE_MB = Number(uploadForm.dataset.maxUploadSizeMb || 500);
     const MAX_TOTAL_SIZE_MB = Number(uploadForm.dataset.maxTotalUploadMb || 2048);
 
+    // --- Persistência do job ativo (retoma após refresh / queda de internet) ---
+    // O processamento roda no servidor (Celery) independentemente da aba. Aqui só
+    // guardamos qual job acompanhar, para reconectar ao recarregar a página.
+    const ACTIVE_JOB_KEY = 'divisorpdf:activeJob';
+
+    function saveActiveJob(jobId, hasCompression, hasSplit) {
+        try {
+            localStorage.setItem(ACTIVE_JOB_KEY, JSON.stringify({
+                jobId, hasCompression, hasSplit, ts: Date.now(),
+            }));
+        } catch (e) { /* localStorage indisponível: degrada sem quebrar */ }
+    }
+
+    function clearActiveJob() {
+        try { localStorage.removeItem(ACTIVE_JOB_KEY); } catch (e) {}
+    }
+
+    function getActiveJob() {
+        try { return JSON.parse(localStorage.getItem(ACTIVE_JOB_KEY) || 'null'); }
+        catch (e) { return null; }
+    }
+
     // --- Toast Notifications ---
     function showToast(message, type = 'error') {
         const toast = document.createElement('div');
@@ -618,6 +640,9 @@ document.addEventListener('DOMContentLoaded', () => {
                     progressPercent.textContent = '0%';
                     progressText.textContent = 'Iniciando processamento no servidor...';
 
+                    // Persiste o job para sobreviver a refresh / perda de conexão
+                    saveActiveJob(data.job_id, compressLevel !== 'none', isSplitChecked);
+
                     // Inicia polling de status
                     startPolling(data.job_id, compressLevel !== 'none', isSplitChecked);
                 } catch (err) {
@@ -655,15 +680,30 @@ document.addEventListener('DOMContentLoaded', () => {
         processingStartedAt = Date.now();
         lastProcessingProgress = 0;
         updateProgress(0, 'Iniciando processamento...');
-        
+
+        // Tolera quedas transitórias de internet: só desiste após várias falhas
+        // seguidas (~12s). O job continua no servidor enquanto isso.
+        let consecutiveErrors = 0;
+        const MAX_POLL_ERRORS = 8;
+
         pollingInterval = setInterval(async () => {
             try {
                 const response = await fetch(`/api/status/${jobId}/`);
                 const data = await response.json();
 
                 if (!response.ok) {
+                    // 404 = job não pertence à sessão / não existe mais → desiste já
+                    if (response.status === 404) {
+                        stopPolling();
+                        stopEtaTicker();
+                        clearActiveJob();
+                        showFailure(data.error || 'Este processamento não está mais disponível.');
+                        return;
+                    }
                     throw new Error(data.error || 'Erro ao obter status do processamento.');
                 }
+
+                consecutiveErrors = 0;
 
                 if (data.status === 'processing' || data.status === 'pending') {
                     let msg = 'Processando arquivos...';
@@ -689,18 +729,26 @@ document.addEventListener('DOMContentLoaded', () => {
                     stopEtaTicker();
                     workflowEta.textContent = 'Tempo restante total: concluído';
                     showSuccess(data);
-                } 
-                
+                }
+
                 else if (data.status === 'failed') {
                     stopPolling();
                     stopEtaTicker();
+                    clearActiveJob();
                     showFailure(data.error_message || 'Erro inesperado no servidor.');
                 }
 
             } catch (error) {
-                stopPolling();
-                stopEtaTicker();
-                showFailure(error.message);
+                // Erro transitório (rede instável): mantém a tela e continua tentando.
+                // O processamento segue no servidor; só desiste após várias falhas.
+                consecutiveErrors++;
+                if (consecutiveErrors >= MAX_POLL_ERRORS) {
+                    stopPolling();
+                    stopEtaTicker();
+                    showFailure('Conexão perdida com o servidor. O processamento pode continuar — recarregue a página para retomar.');
+                } else {
+                    progressText.textContent = 'Conexão instável — tentando reconectar...';
+                }
             }
         }, 1500);
     }
@@ -742,7 +790,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     // --- Result UI triggers ---
-    function showSuccess(data) {
+    function showSuccess(data, autoDownload = true) {
         resultFiles.textContent = data.total_output_files;
         resultSize.textContent = `${data.zip_size_mb.toFixed(2)} MB`;
         downloadBtn.href = data.download_url;
@@ -776,12 +824,15 @@ document.addEventListener('DOMContentLoaded', () => {
         }
 
         showSection(resultSection);
-        showToast('Processamento concluído com sucesso!', 'success');
 
-        // Dispara o download automaticamente após a transição
-        setTimeout(() => {
-            downloadBtn.click();
-        }, 500);
+        // Dispara o download automaticamente só no fluxo normal (não ao reconectar
+        // após um refresh, para não baixar de novo sem o usuário pedir).
+        if (autoDownload) {
+            showToast('Processamento concluído com sucesso!', 'success');
+            setTimeout(() => {
+                downloadBtn.click();
+            }, 500);
+        }
     }
 
     function renderWarnings(warnings) {
@@ -811,6 +862,7 @@ document.addEventListener('DOMContentLoaded', () => {
     function resetApp() {
         stopPolling();
         stopEtaTicker();
+        clearActiveJob();
         selectedFiles = [];
         latestProcessingProgress = 0;
         processingStartedAt = null;
@@ -851,6 +903,59 @@ document.addEventListener('DOMContentLoaded', () => {
         showSection(uploadSection);
     }
 
+    // --- Retomada do job ao carregar a página (refresh / volta após queda) ---
+    // Alinhado à retenção de 1h dos arquivos; ignora jobs muito antigos.
+    const ACTIVE_JOB_TTL_MS = 2 * 60 * 60 * 1000;
+
+    async function attemptResume() {
+        const active = getActiveJob();
+        if (!active || !active.jobId) return;
+
+        if (active.ts && (Date.now() - active.ts) > ACTIVE_JOB_TTL_MS) {
+            clearActiveJob();
+            return;
+        }
+
+        // Mostra a tela de processamento imediatamente, em modo "reconectando".
+        processingTitle.textContent = 'Reconectando...';
+        uploadProgressContainer.style.display = 'none'; // o upload já ocorreu
+        processingProgressContainer.style.display = 'block';
+        progressText.textContent = 'Retomando seu processamento...';
+        workflowEta.textContent = 'Reconectando ao servidor...';
+        showSection(processingSection);
+
+        try {
+            const response = await fetch(`/api/status/${active.jobId}/`);
+            const data = await response.json();
+
+            if (!response.ok) {
+                // Sessão diferente / job inexistente → volta ao início sem alarde.
+                clearActiveJob();
+                showSection(uploadSection);
+                return;
+            }
+
+            if (data.status === 'completed') {
+                updateProgress(100, 'Processamento concluído.');
+                showSuccess(data, false); // sem auto-download ao reconectar
+            } else if (data.status === 'failed') {
+                clearActiveJob();
+                showFailure(data.error_message || 'Erro inesperado no servidor.');
+            } else {
+                // pending / processing → retoma o acompanhamento ao vivo.
+                processingTitle.textContent = 'Processando...';
+                startPolling(active.jobId, active.hasCompression, active.hasSplit);
+            }
+        } catch (e) {
+            // Ainda sem internet: mantém a tela e deixa o polling reconectar sozinho.
+            processingTitle.textContent = 'Processando...';
+            startPolling(active.jobId, active.hasCompression, active.hasSplit);
+        }
+    }
+
     newSplitBtn.addEventListener('click', resetApp);
     retryBtn.addEventListener('click', resetApp);
+
+    // Ao abrir a página, tenta reconectar a um processamento em andamento.
+    attemptResume();
 });
