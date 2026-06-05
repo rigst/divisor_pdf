@@ -3,12 +3,12 @@ Description=Gunicorn daemon for Divisor PDF Django Web App
 After=network.target
 
 [Service]
-User=rodrigostolben
+User=rod
 Group=www-data
-WorkingDirectory=/home/rodrigostolben/Projetos/divisor_pdf
-EnvironmentFile=/home/rodrigostolben/Projetos/divisor_pdf/.env
-ExecStart=/home/rodrigostolben/Projetos/divisor_pdf/venv/bin/gunicorn \
-          --config /home/rodrigostolben/Projetos/divisor_pdf/deploy/gunicorn.conf.py \
+WorkingDirectory=/var/www/divisor_pdf
+EnvironmentFile=/var/www/divisor_pdf/.env
+ExecStart=/var/www/divisor_pdf/venv/bin/gunicorn \
+          --config /var/www/divisor_pdf/deploy/gunicorn.conf.py \
           config.wsgi:application
 
 Restart=always
