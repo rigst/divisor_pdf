@@ -685,7 +685,7 @@ html {
 }
 
 #submit-btn { margin-top: var(--space-lg); }
-#download-btn { margin-bottom: var(--space-md); }
+#download-btn { margin-bottom: var(--space-md); color: #fff; }
 #new-split-btn,
 #retry-btn { margin-top: var(--space-sm); }
 
@@ -768,7 +768,7 @@ html {
     grid-template-columns: 1fr 1fr;
     gap: 1px;
     margin-bottom: var(--space-xl);
-    background: var(--ds-line-dark);
+    background: color-mix(in srgb, var(--ds-accent) 15%, #1e2230);
     border-radius: var(--r-md);
     overflow: hidden;
     box-shadow: var(--ds-shadow-block);
@@ -777,7 +777,7 @@ html {
 .stat {
     padding: var(--space-xl) var(--space-lg);
     text-align: center;
-    background: #262d3a;
+    background: color-mix(in srgb, var(--ds-accent) 12%, #252a3a);
 }
 
 .stat-value {
