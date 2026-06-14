@@ -10,17 +10,17 @@
     --bg: var(--ds-bg);
     --surface: var(--ds-surface);
     --surface-alt: var(--ds-panel);
-    --surface-hover: var(--ds-blue-50);
+    --surface-hover: var(--ds-accent-50);
 
     --border: var(--ds-line);
     --border-strong: var(--ds-line-dash);
 
-    --brand: var(--ds-blue);
-    --brand-hover: var(--ds-blue-dark);
-    --brand-active: var(--ds-blue-dark);
-    --brand-soft: var(--ds-blue-50);
-    --brand-soft-border: var(--ds-blue-100);
-    --brand-text: var(--ds-blue-dark);
+    --brand: var(--ds-accent);
+    --brand-hover: var(--ds-accent-dark);
+    --brand-active: var(--ds-accent-dark);
+    --brand-soft: var(--ds-accent-50);
+    --brand-soft-border: var(--ds-accent-100);
+    --brand-text: var(--ds-accent-dark);
 
     /* Estados semânticos (o DS só define "warn"; success/danger mantidos) */
     --success: #16a34a;
@@ -30,13 +30,13 @@
     --danger-hover: #b91c1c;
     --danger-soft: #fef2f2;
     --warn-text: #92400e;
-    --warn-soft: var(--ds-warn-soft);
+    --warn-soft: var(--ds-warn-50);
     --warn-border: rgba(251, 191, 36, 0.35);
 
     /* Texto */
-    --text: var(--ds-text-900);
-    --text-2: var(--ds-text-700);
-    --text-3: var(--ds-text-500);
+    --text: var(--ds-t-900);
+    --text-2: var(--ds-t-700);
+    --text-3: var(--ds-t-500);
 
     /* Raios (alinhados ao DS) */
     --r-lg: var(--ds-radius-lg);   /* 1.5rem — cards */
@@ -63,7 +63,7 @@
 
     --font-body: var(--ds-font-sans);
     --font-display: var(--ds-font-display);
-    --ring: 0 0 0 3px rgba(37, 99, 235, 0.18);
+    --ring: 0 0 0 3px var(--ds-accent-100);
 }
 
 *, *::before, *::after {
@@ -81,7 +81,7 @@ html {
 
 /* ---------- Shell focado (app de coluna única) ---------- */
 
-.ds-shell {
+.ds-app {
     max-width: 56rem;          /* mais estreito que o site, foco na ferramenta */
 }
 
@@ -91,7 +91,39 @@ html {
     gap: var(--space-lg);
 }
 
-/* ---------- Nav (pílula do DS) ---------- */
+/* ---------- Nav (pílula) ---------- */
+
+/* A versão atual do Stölben UI deixou de fornecer .ds-nav/.ds-nav-pill (migrou
+   para .ds-topbar de sidebar). Como este app usa uma nav-pílula flutuante de
+   site, definimos o layout aqui (identidade do app). */
+.ds-nav {
+    position: fixed; top: 0; left: 0; right: 0; z-index: 60;
+    display: flex; justify-content: center;
+    padding: 1.25rem 1rem; pointer-events: none;
+}
+.ds-nav-pill {
+    pointer-events: auto;
+    display: flex; align-items: center; gap: 1.5rem;
+    background: rgba(255, 255, 255, 0.07);
+    -webkit-backdrop-filter: blur(var(--ds-blur)); backdrop-filter: blur(var(--ds-blur));
+    border: 1px solid rgba(255, 255, 255, 0.14);
+    border-radius: var(--ds-radius-pill);
+    padding: 0.5rem 0.6rem 0.5rem 1.25rem; font-size: 0.9rem;
+    transition: background 280ms ease, border-color 280ms ease, box-shadow 280ms ease;
+}
+/* #site-nav eleva a especificidade acima de `.ds-root a { color: inherit }`
+   do DS (senão o texto do brand/CTA herdaria a cor escura do body). */
+#site-nav .ds-nav-brand {
+    color: #fff; font-family: var(--ds-font-display); font-weight: 600;
+    letter-spacing: -0.02em; font-size: 0.95rem;
+}
+#site-nav .ds-nav-cta {
+    background: #fff; color: #000;
+    padding: 0.45rem 1.1rem; border-radius: var(--ds-radius-pill);
+    font-weight: 500; text-decoration: none; white-space: nowrap;
+    transition: background 160ms ease;
+}
+#site-nav .ds-nav-cta:hover { background: var(--ds-accent-50); }
 
 /* Fundo escuro translúcido por padrão: garante texto branco legível
    sobre qualquer região da foto do hero (corrige "branco sobre branco"). */
@@ -103,7 +135,7 @@ html {
 }
 #site-nav.is-scrolled .ds-nav-pill { background: rgba(15, 17, 21, 0.86); }
 
-.ds-nav-brand .logo-accent { color: var(--ds-blue-light); }
+.ds-nav-brand .logo-accent { color: var(--ds-accent-light); }
 .ds-nav-brand, .ds-nav-links a { text-decoration: none; }
 .ds-nav-links a { font-size: 0.88rem; }
 
@@ -149,11 +181,11 @@ html {
     margin-top: var(--space-xs);
 }
 
-.logo-accent { color: var(--ds-blue-light); }
+.logo-accent { color: var(--ds-accent-light); }
 
 .header-subtitle {
     max-width: 44ch;
-    color: var(--ds-on-dark-mute);
+    color: var(--ds-on-dark-dim);
     font-size: 1.05rem;
     line-height: 1.65;
 }
@@ -166,7 +198,7 @@ html {
     gap: var(--space-xl);
     margin-top: var(--space-lg);
     padding-top: var(--space-lg);
-    border-top: 1px solid var(--ds-border-dark);
+    border-top: 1px solid var(--ds-line-dark);
 }
 .header-meta li { display: flex; flex-direction: column; gap: 0.1rem; }
 .header-meta strong {
@@ -174,9 +206,9 @@ html {
     font-size: 1.15rem;
     font-weight: 600;
     color: var(--ds-on-dark);
-    letter-spacing: var(--ds-tracking-tight);
+    letter-spacing: -0.02em;
 }
-.header-meta span { color: var(--ds-on-dark-soft); font-size: 0.8rem; }
+.header-meta span { color: var(--ds-on-dark-dim); font-size: 0.8rem; }
 
 /* ---------- Faixa de pilares / diferenciais ---------- */
 
@@ -214,7 +246,7 @@ html {
     font-family: var(--font-display);
     font-size: 1.08rem;
     font-weight: 600;
-    letter-spacing: var(--ds-tracking-tight);
+    letter-spacing: -0.02em;
     color: var(--text);
     margin-bottom: var(--space-xs);
 }
@@ -266,8 +298,8 @@ html {
     width: 3rem;
     height: 3rem;
     border-radius: var(--ds-radius-md);
-    background: var(--ds-blue-50);
-    border: 1px solid var(--ds-blue-100);
+    background: var(--ds-accent-50);
+    border: 1px solid var(--ds-accent-100);
     color: var(--brand);
     display: flex;
     align-items: center;
@@ -275,7 +307,7 @@ html {
     flex-shrink: 0;
 }
 
-.card-icon-processing { background: var(--ds-blue-50); border-color: var(--ds-blue-100); color: var(--brand); }
+.card-icon-processing { background: var(--ds-accent-50); border-color: var(--ds-accent-100); color: var(--brand); }
 .card-icon-success { background: var(--success-soft); border-color: #c4ecd0; color: var(--success); }
 .card-icon-error { background: var(--danger-soft); border-color: #fbd3d3; color: var(--danger); }
 
@@ -284,7 +316,7 @@ html {
     font-size: var(--ds-fs-h3);
     font-weight: 600;
     color: var(--text);
-    letter-spacing: var(--ds-tracking-tight);
+    letter-spacing: -0.02em;
 }
 
 /* ---------- Drop zone ---------- */
@@ -295,7 +327,7 @@ html {
     border-radius: var(--r-md);
     padding: var(--space-2xl) var(--space-xl);
     background:
-        radial-gradient(120% 90% at 50% -10%, var(--ds-blue-50), transparent 60%),
+        radial-gradient(120% 90% at 50% -10%, var(--ds-accent-50), transparent 60%),
         var(--surface-alt);
     text-align: center;
     cursor: pointer;
@@ -310,15 +342,15 @@ html {
     background: var(--brand-soft);
 }
 
-.drop-zone.drag-over { box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.18); }
+.drop-zone.drag-over { box-shadow: var(--ring); }
 
 .drop-zone-icon {
     width: 4rem;
     height: 4rem;
     margin: 0 auto var(--space-md);
     border-radius: var(--ds-radius-pill);
-    background: var(--ds-blue-50);
-    border: 1px solid var(--ds-blue-100);
+    background: var(--ds-accent-50);
+    border: 1px solid var(--ds-accent-100);
     color: var(--brand);
     display: flex;
     align-items: center;
@@ -423,8 +455,8 @@ html {
     width: 36px;
     height: 36px;
     border-radius: var(--r-xs);
-    background: var(--ds-blue-50);
-    border: 1px solid var(--ds-blue-100);
+    background: var(--ds-accent-50);
+    border: 1px solid var(--ds-accent-100);
     color: var(--brand);
     display: flex;
     align-items: center;
@@ -565,47 +597,9 @@ html {
     border-radius: var(--r-md);
 }
 
-.switch-container {
-    width: 100%;
-    display: inline-flex;
-    align-items: center;
-    gap: var(--space-md);
-    cursor: pointer;
-    user-select: none;
-}
-
-.switch-container input {
-    position: absolute;
-    opacity: 0;
-    pointer-events: none;
-}
-
-.switch-slider {
-    width: 44px;
-    height: 24px;
-    background: #cbd5e1;
-    border-radius: var(--ds-radius-pill);
-    position: relative;
-    transition: background var(--transition-base);
-    flex-shrink: 0;
-}
-
-.switch-slider::before {
-    content: '';
-    position: absolute;
-    width: 18px;
-    height: 18px;
-    border-radius: 50%;
-    background: #ffffff;
-    left: 3px;
-    top: 3px;
-    box-shadow: var(--shadow-xs);
-    transition: transform var(--transition-base);
-}
-
-.switch-container input:checked + .switch-slider { background: var(--brand); }
-.switch-container input:focus-visible + .switch-slider { box-shadow: var(--ring); }
-.switch-container input:checked + .switch-slider::before { transform: translateX(20px); }
+/* O toggle em si vem do DS (.ds-switch + .ds-switch-track). Aqui só fazemos
+   o rótulo ocupar a linha inteira dentro do box. */
+.action-switch-control .ds-switch { width: 100%; gap: var(--space-md); }
 
 .switch-label-text { color: var(--text); font-size: 0.9rem; font-weight: 500; }
 
@@ -717,72 +711,24 @@ html {
     font-variant-numeric: tabular-nums;
 }
 
-/* ---------- Botões (pílula, estilo DS) ---------- */
+/* ---------- Botões ---------- */
+/* Base/variações vêm do DS (.ds-btn, --solid/--ghost, --block). Aqui só:
+   espaçamento entre as ações empilhadas e o estado .loading (spinner). */
 
-.btn {
-    width: 100%;
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    gap: var(--space-sm);
-    padding: 0.85rem var(--space-xl);
-    border-radius: var(--ds-radius-pill);
-    border: 1px solid transparent;
-    font-family: var(--font-body);
-    font-size: 1rem;
-    font-weight: 500;
-    cursor: pointer;
-    transition: background var(--transition-base), border-color var(--transition-base),
-        color var(--transition-base), box-shadow var(--transition-base), transform var(--transition-fast);
-    text-decoration: none;
+#submit-btn { margin-top: var(--space-lg); }
+#download-btn { margin-bottom: var(--space-md); }
+#new-split-btn,
+#retry-btn { margin-top: var(--space-sm); }
+
+/* Botão de ação principal precisa de posição relativa para o spinner. */
+.ds-btn.loading {
     position: relative;
+    pointer-events: none;
+    opacity: 0.85;
 }
+.ds-btn.loading span { visibility: hidden; }
 
-.btn svg { width: 1.1rem; height: 1.1rem; }
-.btn:active:not(:disabled) { transform: translateY(1px); }
-
-/* Ação principal (azul sólido — único acento, conforme o DS) */
-.btn-primary,
-.btn-download {
-    margin-top: var(--space-lg);
-    background: var(--brand);
-    color: #ffffff;
-    box-shadow: var(--ds-shadow-glow-blue);
-}
-
-.btn-primary:hover:not(:disabled),
-.btn-download:hover {
-    background: var(--brand-hover);
-    box-shadow: 0 0 28px rgba(37, 99, 235, 0.45);
-}
-
-.btn-primary:disabled {
-    background: #e2e8f0;
-    color: #94a3b8;
-    cursor: not-allowed;
-    box-shadow: none;
-}
-
-.btn-download { margin-top: 0; margin-bottom: var(--space-md); }
-
-/* Ação secundária (contorno claro) */
-.btn-secondary {
-    background: var(--surface);
-    color: var(--text);
-    border-color: var(--border-strong);
-}
-
-.btn-secondary:hover {
-    background: var(--surface-alt);
-    border-color: #b8c4d6;
-}
-
-.btn:focus-visible { outline: none; box-shadow: var(--ring); }
-
-.btn.loading { pointer-events: none; opacity: 0.85; }
-.btn.loading span { visibility: hidden; }
-
-.btn.loading::after {
+.ds-btn.loading::after {
     content: '';
     position: absolute;
     width: 20px;
@@ -805,38 +751,16 @@ html {
     font-weight: 600;
 }
 
-.progress-bar {
-    width: 100%;
-    height: 10px;
-    background: #e8edf3;
-    border-radius: var(--ds-radius-pill);
-    overflow: hidden;
-    box-shadow: inset 0 1px 2px rgba(15, 23, 42, 0.06);
-}
-
-.progress-fill {
-    position: relative;
-    height: 100%;
-    width: 0;
-    background: linear-gradient(90deg, var(--ds-blue-dark), var(--ds-blue-light));
-    border-radius: var(--ds-radius-pill);
-    box-shadow: 0 0 14px rgba(37, 99, 235, 0.45);
+/* A barra (.ds-progress) e o preenchimento animado (.ds-progress-fill, com
+   shimmer próprio) vêm do DS. Damos altura um pouco maior e glow no acento. */
+.ds-progress { height: 10px; }
+.ds-progress-fill {
+    box-shadow: 0 0 14px var(--ds-accent-100);
     transition: width 0.4s ease;
-    overflow: hidden;
 }
 
-/* Brilho deslizante enquanto processa */
-.progress-fill::after {
-    content: '';
-    position: absolute;
-    inset: 0;
-    background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.35), transparent);
-    transform: translateX(-100%);
-    animation: progress-shimmer 1.4s var(--ds-ease) infinite;
-}
-
-/* Fase de envio: azul mais claro, para diferenciar do processamento */
-.upload-fill { background: linear-gradient(90deg, var(--ds-blue-light), #60a5fa) !important; }
+/* Fase de envio: acento mais claro, para diferenciar do processamento (acento). */
+.ds-progress-fill.upload-fill { background: var(--ds-accent-light); }
 
 .progress-info {
     display: flex;
@@ -875,7 +799,7 @@ html {
     grid-template-columns: 1fr 1fr;
     gap: 1px;
     margin-bottom: var(--space-xl);
-    background: var(--ds-border-dark);
+    background: var(--ds-line-dark);
     border-radius: var(--r-md);
     overflow: hidden;
     box-shadow: var(--ds-shadow-block);
@@ -891,95 +815,45 @@ html {
     display: block;
     margin-bottom: var(--space-xs);
     font-family: var(--font-display);
-    color: var(--ds-blue-light);
+    color: var(--ds-accent-light);
     font-size: 2.1rem;
     font-weight: 700;
-    letter-spacing: var(--ds-tracking-tight);
+    letter-spacing: -0.02em;
     font-variant-numeric: tabular-nums;
 }
 
 .stat-label {
-    color: var(--ds-on-dark-soft);
+    color: var(--ds-on-dark-dim);
     font-size: 0.72rem;
     font-weight: 600;
     text-transform: uppercase;
     letter-spacing: 0.12em;
 }
 
-.result-warnings,
-.result-warning {
-    padding: var(--space-md);
-    color: var(--warn-text);
-    background: var(--warn-soft);
-    border: 1px solid var(--warn-border);
-    border-radius: var(--r-md);
-}
-
-.result-warnings { margin-bottom: var(--space-lg); }
-
-.result-warnings-title,
-.result-warning {
-    display: flex;
-    align-items: center;
-    gap: var(--space-sm);
-    font-weight: 600;
-}
-
-.result-warnings-title { margin-bottom: var(--space-sm); }
+/* Avisos e erro usam o componente .ds-alert do DS (cores/borda/ícone).
+   Aqui só ajustamos a lista de avisos e a notinha de retenção (1h). */
+#result-warnings { margin-bottom: var(--space-lg); }
 
 .result-warnings-list {
-    margin: 0;
+    margin: 0.2rem 0 0;
     padding-left: var(--space-lg);
-    color: #78350f;
     font-size: 0.9rem;
     line-height: 1.5;
 }
-
 .result-warnings-list li + li { margin-top: var(--space-xs); }
 
-.result-warning {
-    margin-top: var(--space-lg);
-    font-size: 0.84rem;
-    font-weight: 500;
-}
+.ds-alert--danger { margin-bottom: var(--space-xl); }
 
-.error-message {
-    margin-bottom: var(--space-xl);
-    padding: var(--space-md);
-    color: #991b1b;
-    background: var(--danger-soft);
-    border: 1px solid #fecaca;
-    border-radius: var(--r-md);
-    font-size: 0.95rem;
-}
-
-/* ---------- Toasts ---------- */
-
-.toast-container {
-    position: fixed;
-    top: var(--space-lg);
-    right: var(--space-lg);
-    z-index: 1000;
+/* Notinha de retenção: texto auxiliar do DS (.ds-help) com ícone alinhado. */
+.result-note {
     display: flex;
-    flex-direction: column;
+    align-items: center;
     gap: var(--space-sm);
+    margin-top: var(--space-lg);
 }
+.result-note svg { flex-shrink: 0; }
 
-.toast {
-    max-width: 380px;
-    padding: var(--space-md) var(--space-lg);
-    border-radius: var(--r-md);
-    border: 1px solid var(--border);
-    background: var(--surface);
-    box-shadow: var(--shadow-lg);
-    font-size: 0.9rem;
-    font-weight: 500;
-    animation: toast-in 0.2s ease-out;
-}
-
-.toast.toast-error { border-left: 3px solid var(--danger); color: var(--danger); }
-.toast.toast-success { border-left: 3px solid var(--success); color: var(--success); }
-.toast.toast-out { animation: toast-out 0.2s ease-in forwards; }
+/* Toasts: providos pelo design system (window.dsToast + .ds-toast). */
 
 /* ---------- Rodapé ---------- */
 
@@ -1006,7 +880,7 @@ html {
     letter-spacing: -0.02em;
 }
 
-.footer-brand .logo-accent { color: var(--ds-blue-light); }
+.footer-brand .logo-accent { color: var(--ds-accent-light); }
 .footer-copy { color: var(--text-3); font-size: 0.85rem; margin-top: 0.15rem; }
 
 .footer-points {
@@ -1032,9 +906,6 @@ html {
 /* ---------- Animações ---------- */
 
 @keyframes spin { to { transform: rotate(360deg); } }
-@keyframes progress-shimmer { to { transform: translateX(100%); } }
-@keyframes toast-in { from { opacity: 0; transform: translateY(-8px); } to { opacity: 1; transform: translateY(0); } }
-@keyframes toast-out { from { opacity: 1; transform: translateY(0); } to { opacity: 0; transform: translateY(-8px); } }
 @keyframes fade-in-up { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: translateY(0); } }
 
 /* ============================================================
@@ -1045,26 +916,26 @@ html {
    ============================================================ */
 .drop-zone {
     background:
-        radial-gradient(120% 90% at 50% -10%, rgba(37, 99, 235, 0.16), transparent 62%),
+        radial-gradient(120% 90% at 50% -10%, color-mix(in srgb, var(--ds-accent) 18%, transparent), transparent 62%),
         var(--ds-ink-soft);
     border-color: rgba(255, 255, 255, 0.16);
 }
 .drop-zone:hover,
 .drop-zone:focus-visible,
 .drop-zone.drag-over {
-    border-color: var(--ds-blue-light);
+    border-color: var(--ds-accent-light);
     background:
-        radial-gradient(120% 90% at 50% -10%, rgba(37, 99, 235, 0.26), transparent 62%),
+        radial-gradient(120% 90% at 50% -10%, color-mix(in srgb, var(--ds-accent) 30%, transparent), transparent 62%),
         var(--ds-ink-soft);
 }
 .drop-zone-icon {
-    background: rgba(59, 130, 246, 0.16);
-    border-color: rgba(59, 130, 246, 0.34);
-    color: var(--ds-blue-light);
+    background: color-mix(in srgb, var(--ds-accent) 20%, transparent);
+    border-color: color-mix(in srgb, var(--ds-accent) 40%, transparent);
+    color: var(--ds-accent-light);
 }
 .drop-zone-text { color: var(--ds-on-dark); }
 .drop-zone-text span,
-.drop-zone-hint { color: var(--ds-on-dark-soft); }
+.drop-zone-hint { color: var(--ds-on-dark-dim); }
 
 /* ---------- Responsivo ---------- */
 
@@ -1095,9 +966,6 @@ html {
         flex-direction: column;
         gap: var(--space-xs);
     }
-
-    .toast-container { left: var(--space-sm); right: var(--space-sm); top: var(--space-sm); }
-    .toast { max-width: none; }
 }
 
 @media (max-width: 440px) {
@@ -1108,5 +976,5 @@ html {
 @media (prefers-reduced-motion: reduce) {
     html { scroll-behavior: auto; }
     .feature-band.is-visible .reveal-child { animation: none; }
-    .progress-fill::after { animation: none; }
+    .ds-progress-fill::after { animation: none; }
 }

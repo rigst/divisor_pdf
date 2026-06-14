@@ -6,6 +6,17 @@
  */
 
 document.addEventListener('DOMContentLoaded', () => {
+    // --- Nav: escurece a pílula ao rolar (classe .is-scrolled em #site-nav) ---
+    // A versão atual do Stölben UI não traz mais o comportamento da nav de site,
+    // então tratamos aqui. Sobre o hero a pílula fica translúcida; ao rolar para
+    // o conteúdo claro, fica mais opaca para manter o texto legível.
+    const siteNav = document.getElementById('site-nav');
+    if (siteNav) {
+        const onScroll = () => siteNav.classList.toggle('is-scrolled', window.scrollY > 20);
+        window.addEventListener('scroll', onScroll, { passive: true });
+        onScroll();
+    }
+
     // --- DOM Elements ---
     const uploadSection = document.getElementById('upload-section');
     const uploadForm = document.getElementById('upload-form');
@@ -65,8 +76,6 @@ document.addEventListener('DOMContentLoaded', () => {
     const errorMessage = document.getElementById('error-message');
     const retryBtn = document.getElementById('retry-btn');
     
-    const toastContainer = document.getElementById('toast-container');
-
     // --- State Variables ---
     let selectedFiles = [];
     let pollingInterval = null;
@@ -100,18 +109,16 @@ document.addEventListener('DOMContentLoaded', () => {
         catch (e) { return null; }
     }
 
-    // --- Toast Notifications ---
+    // --- Toast Notifications (delega ao design system: window.dsToast) ---
+    // Tipos do app ('error'/'success') mapeados para os do DS (danger/success/warn/info).
     function showToast(message, type = 'error') {
-        const toast = document.createElement('div');
-        toast.className = `toast toast-${type}`;
-        toast.textContent = message;
-        toastContainer.appendChild(toast);
-
-        // Remove toast com animação suave
-        setTimeout(() => {
-            toast.classList.add('toast-out');
-            toast.addEventListener('animationend', () => toast.remove());
-        }, 4000);
+        const dsType = { error: 'danger', success: 'success', warn: 'warn', info: 'info' }[type] || type || 'danger';
+        if (typeof window.dsToast === 'function') {
+            window.dsToast(message, dsType);
+        } else {
+            // Degradação se o stolben-ui.js não tiver carregado.
+            window.alert(message);
+        }
     }
 
     // --- Format Bytes helper ---
@@ -849,7 +856,8 @@ document.addEventListener('DOMContentLoaded', () => {
             resultWarningsList.appendChild(item);
         });
 
-        resultWarnings.style.display = 'block';
+        // .ds-alert usa display:flex; manter o layout do componente do DS.
+        resultWarnings.style.display = 'flex';
     }
 
     function showFailure(messageText) {
