@@ -777,7 +777,7 @@ html {
 .stat {
     padding: var(--space-xl) var(--space-lg);
     text-align: center;
-    background: var(--ds-ink);
+    background: var(--ds-surface-alt);
 }
 
 .stat-value {
