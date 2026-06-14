@@ -7,6 +7,10 @@
     <meta name="theme-color" content="#0f1115">
     <title>{% block title %}Divisor de PDFs{% endblock %}</title>
 
+    <!-- Tema claro/escuro: aplica a preferência ANTES do CSS para evitar "flash".
+         'auto' (sem preferência salva) segue o sistema. -->
+    <script>(function(){var e=document.documentElement;e.classList.add("js");try{var m=localStorage.getItem("ds-theme-mode");if(m==="dark"||(!m&&matchMedia("(prefers-color-scheme:dark)").matches))e.classList.add("ds-dark");}catch(x){}})();</script>
+
     <!-- Google Fonts (alinhado ao design system Stölben) -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>

@@ -22,16 +22,18 @@
     --brand-soft-border: var(--ds-accent-100);
     --brand-text: var(--ds-accent-dark);
 
-    /* Estados semânticos (o DS só define "warn"; success/danger mantidos) */
-    --success: #16a34a;
-    --success-hover: #15803d;
-    --success-soft: #ecfdf3;
-    --danger: #dc2626;
-    --danger-hover: #b91c1c;
-    --danger-soft: #fef2f2;
-    --warn-text: #92400e;
+    /* Estados semânticos — derivados dos tokens do DS para adaptarem no escuro. */
+    --success: var(--ds-success);
+    --success-hover: var(--ds-success);
+    --success-soft: var(--ds-success-50);
+    --success-border: var(--ds-success-100);
+    --danger: var(--ds-danger);
+    --danger-hover: var(--ds-danger);
+    --danger-soft: var(--ds-danger-50);
+    --danger-border: var(--ds-danger-100);
+    --warn-text: var(--ds-warn);
     --warn-soft: var(--ds-warn-50);
-    --warn-border: rgba(251, 191, 36, 0.35);
+    --warn-border: var(--ds-warn-100);
 
     /* Texto */
     --text: var(--ds-t-900);
@@ -125,28 +127,52 @@ html {
 }
 #site-nav .ds-nav-cta:hover { background: var(--ds-accent-50); }
 
-/* Efeito de vidro fosco (glassmorphism): fundo bem translúcido + blur forte
-   com saturação, brilho interno no topo e sombra suave. Sobre o hero fica
-   bem leve; ao rolar, um leve reforço de tinta mantém o texto legível sem
-   virar uma barra escura. */
+/* Vidro translúcido com BORDA BRILHANTE (glossy): fundo leve + blur com
+   saturação, contorno luminoso ao redor (border clara + rim interno) e um
+   brilho superior nítido. Sobre o hero fica bem leve; ao rolar, um leve
+   reforço de tinta mantém o texto legível sem virar barra escura. */
 #site-nav .ds-nav-pill {
     background: rgba(20, 22, 28, 0.22);
-    border-color: rgba(255, 255, 255, 0.18);
+    border-color: rgba(255, 255, 255, 0.45);
     -webkit-backdrop-filter: blur(22px) saturate(160%);
     backdrop-filter: blur(22px) saturate(160%);
     box-shadow:
         0 10px 30px rgba(0, 0, 0, 0.18),
-        inset 0 1px 0 rgba(255, 255, 255, 0.22);
+        0 0 0 1px rgba(255, 255, 255, 0.06),
+        inset 0 1px 0 rgba(255, 255, 255, 0.55),
+        inset 0 0 18px rgba(255, 255, 255, 0.10);
 }
 #site-nav.is-scrolled .ds-nav-pill {
-    background: rgba(20, 22, 28, 0.45);
+    background: rgba(20, 22, 28, 0.42);
+    border-color: rgba(255, 255, 255, 0.40);
     box-shadow:
         0 12px 34px rgba(0, 0, 0, 0.22),
-        inset 0 1px 0 rgba(255, 255, 255, 0.18);
+        inset 0 1px 0 rgba(255, 255, 255, 0.45),
+        inset 0 0 18px rgba(255, 255, 255, 0.08);
 }
 
 /* Pequena sombra no texto branco para legibilidade sobre o vidro translúcido. */
 #site-nav .ds-nav-brand { text-shadow: 0 1px 3px rgba(0, 0, 0, 0.45); }
+
+/* Ações à direita da pílula (toggle de tema + CTA). */
+.nav-actions { display: flex; align-items: center; gap: 0.6rem; }
+
+/* Toggle de tema: discreto, vidro, com ícone claro. Mostra lua (→escuro) no
+   claro e sol (→claro) no escuro. */
+#site-nav .nav-theme-toggle {
+    display: inline-flex; align-items: center; justify-content: center;
+    width: 2.1rem; height: 2.1rem; padding: 0;
+    color: #fff; cursor: pointer;
+    background: rgba(255, 255, 255, 0.08);
+    border: 1px solid rgba(255, 255, 255, 0.28);
+    border-radius: var(--ds-radius-pill);
+    transition: background 160ms ease, border-color 160ms ease;
+}
+#site-nav .nav-theme-toggle:hover { background: rgba(255, 255, 255, 0.18); border-color: rgba(255, 255, 255, 0.45); }
+#site-nav .nav-theme-toggle svg { width: 1.05rem; height: 1.05rem; }
+.nav-theme-toggle .icon-sun { display: none; }
+html.ds-dark .nav-theme-toggle .icon-moon { display: none; }
+html.ds-dark .nav-theme-toggle .icon-sun { display: inline; }
 
 .ds-nav-brand .logo-accent { color: var(--ds-accent-light); }
 .ds-nav-brand, .ds-nav-links a { text-decoration: none; }
@@ -321,8 +347,8 @@ html {
 }
 
 .card-icon-processing { background: var(--ds-accent-50); border-color: var(--ds-accent-100); color: var(--brand); }
-.card-icon-success { background: var(--success-soft); border-color: #c4ecd0; color: var(--success); }
-.card-icon-error { background: var(--danger-soft); border-color: #fbd3d3; color: var(--danger); }
+.card-icon-success { background: var(--success-soft); border-color: var(--success-border); color: var(--success); }
+.card-icon-error { background: var(--danger-soft); border-color: var(--danger-border); color: var(--danger); }
 
 .card-header h2 {
     font-family: var(--font-display);
@@ -726,7 +752,16 @@ html {
 
 /* ---------- Botões ---------- */
 /* Base/variações vêm do DS (.ds-btn, --solid/--ghost, --block). Aqui só:
-   espaçamento entre as ações empilhadas e o estado .loading (spinner). */
+   sombra mais limpa no botão principal, espaçamento e estado .loading. */
+
+/* O glow padrão do DS (0 0 22px) ficava esfumaçado/"sujo" ao redor.
+   Troca por uma sombra nítida e direcional, tintada no acento. */
+.ds-btn--solid {
+    box-shadow: 0 6px 16px -6px color-mix(in srgb, var(--ds-accent) 60%, transparent);
+}
+.ds-btn--solid:hover {
+    box-shadow: 0 10px 22px -8px color-mix(in srgb, var(--ds-accent) 70%, transparent);
+}
 
 #submit-btn { margin-top: var(--space-lg); }
 #download-btn { margin-bottom: var(--space-md); }
@@ -949,6 +984,15 @@ html {
 .drop-zone-text { color: var(--ds-on-dark); }
 .drop-zone-text span,
 .drop-zone-hint { color: var(--ds-on-dark-dim); }
+
+/* ============================================================
+   MODO ESCURO — quase tudo adapta sozinho (style.css deriva dos
+   tokens --ds-*, que o DS reescreve em .ds-dark). Aqui só os poucos
+   pontos com cor clara fixa específica do app.
+   ============================================================ */
+/* A faixa de pilares era um vidro branco translúcido; no escuro vira um
+   painel escuro sutilmente elevado. */
+.ds-dark .feature-band { background: rgba(255, 255, 255, 0.035); }
 
 /* ---------- Responsivo ---------- */
 
