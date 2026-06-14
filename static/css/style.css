@@ -125,15 +125,28 @@ html {
 }
 #site-nav .ds-nav-cta:hover { background: var(--ds-accent-50); }
 
-/* Fundo escuro translúcido por padrão: garante texto branco legível
-   sobre qualquer região da foto do hero (corrige "branco sobre branco"). */
+/* Efeito de vidro fosco (glassmorphism): fundo bem translúcido + blur forte
+   com saturação, brilho interno no topo e sombra suave. Sobre o hero fica
+   bem leve; ao rolar, um leve reforço de tinta mantém o texto legível sem
+   virar uma barra escura. */
 #site-nav .ds-nav-pill {
-    background: rgba(15, 17, 21, 0.42);
-    border-color: rgba(255, 255, 255, 0.12);
-    -webkit-backdrop-filter: blur(16px);
-    backdrop-filter: blur(16px);
+    background: rgba(20, 22, 28, 0.22);
+    border-color: rgba(255, 255, 255, 0.18);
+    -webkit-backdrop-filter: blur(22px) saturate(160%);
+    backdrop-filter: blur(22px) saturate(160%);
+    box-shadow:
+        0 10px 30px rgba(0, 0, 0, 0.18),
+        inset 0 1px 0 rgba(255, 255, 255, 0.22);
 }
-#site-nav.is-scrolled .ds-nav-pill { background: rgba(15, 17, 21, 0.86); }
+#site-nav.is-scrolled .ds-nav-pill {
+    background: rgba(20, 22, 28, 0.45);
+    box-shadow:
+        0 12px 34px rgba(0, 0, 0, 0.22),
+        inset 0 1px 0 rgba(255, 255, 255, 0.18);
+}
+
+/* Pequena sombra no texto branco para legibilidade sobre o vidro translúcido. */
+#site-nav .ds-nav-brand { text-shadow: 0 1px 3px rgba(0, 0, 0, 0.45); }
 
 .ds-nav-brand .logo-accent { color: var(--ds-accent-light); }
 .ds-nav-brand, .ds-nav-links a { text-decoration: none; }
