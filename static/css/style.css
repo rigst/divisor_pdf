@@ -95,88 +95,9 @@ html {
 
 /* ---------- Nav (pílula) ---------- */
 
-/* A versão atual do Stölben UI deixou de fornecer .ds-nav/.ds-nav-pill (migrou
-   para .ds-topbar de sidebar). Como este app usa uma nav-pílula flutuante de
-   site, definimos o layout aqui (identidade do app). */
-.ds-nav {
-    position: fixed; top: 0; left: 0; right: 0; z-index: 60;
-    display: flex; justify-content: center;
-    padding: 1.25rem 1rem; pointer-events: none;
-}
-.ds-nav-pill {
-    pointer-events: auto;
-    display: flex; align-items: center; gap: 1.5rem;
-    background: rgba(255, 255, 255, 0.07);
-    -webkit-backdrop-filter: blur(var(--ds-blur)); backdrop-filter: blur(var(--ds-blur));
-    border: 1px solid rgba(255, 255, 255, 0.14);
-    border-radius: var(--ds-radius-pill);
-    padding: 0.5rem 0.6rem 0.5rem 1.25rem; font-size: 0.9rem;
-    transition: background 280ms ease, border-color 280ms ease, box-shadow 280ms ease;
-}
-/* #site-nav eleva a especificidade acima de `.ds-root a { color: inherit }`
-   do DS (senão o texto do brand/CTA herdaria a cor escura do body). */
-#site-nav .ds-nav-brand {
-    color: #fff; font-family: var(--ds-font-display); font-weight: 600;
-    letter-spacing: -0.02em; font-size: 0.95rem;
-}
-#site-nav .ds-nav-cta {
-    background: #fff; color: #000;
-    padding: 0.45rem 1.1rem; border-radius: var(--ds-radius-pill);
-    font-weight: 500; text-decoration: none; white-space: nowrap;
-    transition: background 160ms ease;
-}
-#site-nav .ds-nav-cta:hover { background: var(--ds-accent-50); }
-
-/* Vidro translúcido com BORDA BRILHANTE (glossy): fundo leve + blur com
-   saturação, contorno luminoso ao redor (border clara + rim interno) e um
-   brilho superior nítido. Sobre o hero fica bem leve; ao rolar, um leve
-   reforço de tinta mantém o texto legível sem virar barra escura. */
-#site-nav .ds-nav-pill {
-    background: rgba(20, 22, 28, 0.22);
-    border-color: rgba(255, 255, 255, 0.45);
-    -webkit-backdrop-filter: blur(22px) saturate(160%);
-    backdrop-filter: blur(22px) saturate(160%);
-    box-shadow:
-        0 10px 30px rgba(0, 0, 0, 0.18),
-        0 0 0 1px rgba(255, 255, 255, 0.06),
-        inset 0 1px 0 rgba(255, 255, 255, 0.55),
-        inset 0 0 18px rgba(255, 255, 255, 0.10);
-}
-#site-nav.is-scrolled .ds-nav-pill {
-    background: rgba(20, 22, 28, 0.42);
-    border-color: rgba(255, 255, 255, 0.40);
-    box-shadow:
-        0 12px 34px rgba(0, 0, 0, 0.22),
-        inset 0 1px 0 rgba(255, 255, 255, 0.45),
-        inset 0 0 18px rgba(255, 255, 255, 0.08);
-}
-
-/* Pequena sombra no texto branco para legibilidade sobre o vidro translúcido. */
-#site-nav .ds-nav-brand { text-shadow: 0 1px 3px rgba(0, 0, 0, 0.45); }
-
-/* Ações à direita da pílula (toggle de tema + CTA). */
-.nav-actions { display: flex; align-items: center; gap: 0.6rem; }
-
-/* Toggle de tema: discreto, vidro, com ícone claro. Mostra lua (→escuro) no
-   claro e sol (→claro) no escuro. */
-#site-nav .nav-theme-toggle {
-    display: inline-flex; align-items: center; justify-content: center;
-    width: 2.1rem; height: 2.1rem; padding: 0;
-    color: #fff; cursor: pointer;
-    background: rgba(255, 255, 255, 0.08);
-    border: 1px solid rgba(255, 255, 255, 0.28);
-    border-radius: var(--ds-radius-pill);
-    transition: background 160ms ease, border-color 160ms ease;
-}
-#site-nav .nav-theme-toggle:hover { background: rgba(255, 255, 255, 0.18); border-color: rgba(255, 255, 255, 0.45); }
-#site-nav .nav-theme-toggle svg { width: 1.05rem; height: 1.05rem; }
-.nav-theme-toggle .icon-sun { display: none; }
-html.ds-dark .nav-theme-toggle .icon-moon { display: none; }
-html.ds-dark .nav-theme-toggle .icon-sun { display: inline; }
-
+/* Layout e aparência vêm do componente do DS (.ds-nav/.ds-nav-pill = a mesma
+   nav-pílula do site stolben.com). Aqui só o acento violet do logo "PDF". */
 .ds-nav-brand .logo-accent { color: var(--ds-accent-light); }
-.ds-nav-brand, .ds-nav-links a { text-decoration: none; }
-.ds-nav-links a { font-size: 0.88rem; }
 
 /* ---------- Hero (painel escuro do DS, com foto real) ---------- */
 
@@ -919,6 +840,9 @@ html.ds-dark .nav-theme-toggle .icon-sun { display: inline; }
     justify-content: space-between;
     gap: var(--space-md);
 }
+
+/* Seletor de tema (claro/auto/escuro) no rodapé — só os botões.
+   O .ds-segment.ds-mode usa tokens do DS, então adapta no claro e no escuro. */
 
 .footer-brand {
     font-family: var(--font-display);

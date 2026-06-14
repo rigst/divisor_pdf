@@ -162,8 +162,10 @@
 .ds-btn:active { transform: translateY(1px); }
 .ds-btn svg { width: 1.05em; height: 1.05em; }
 .ds-btn:disabled, .ds-btn[aria-disabled="true"] { opacity: 0.5; cursor: not-allowed; }
-.ds-btn--solid { background: var(--ds-accent); color: var(--ds-on-accent); box-shadow: var(--ds-shadow-glow-blue); }
-.ds-btn--solid:hover { background: var(--ds-accent-dark); }
+/* Sombra nítida e direcional, tintada no acento (evita o glow difuso/"sujo"
+   ao redor que um box-shadow 0 0 22px produzia). */
+.ds-btn--solid { background: var(--ds-accent); color: var(--ds-on-accent); box-shadow: 0 6px 16px -6px color-mix(in srgb, var(--ds-accent) 60%, transparent); }
+.ds-btn--solid:hover { background: var(--ds-accent-dark); box-shadow: 0 10px 22px -8px color-mix(in srgb, var(--ds-accent) 70%, transparent); }
 .ds-btn--primary { background: var(--ds-ink); color: #fff; }
 .ds-btn--primary:hover { background: #000; }
 .ds-btn--ghost { background: var(--ds-surface); color: var(--ds-t-900); border-color: var(--ds-line-strong); }
@@ -200,6 +202,54 @@
 
 /* Avatar / user chip */
 .ds-avatar { width: 2.25rem; height: 2.25rem; border-radius: var(--ds-radius-pill); background: var(--ds-accent); color: var(--ds-on-accent); display: grid; place-items: center; font-weight: 600; font-size: 0.85rem; font-family: var(--ds-font-display); flex-shrink: 0; }
+
+/* ------------------- NAV FLUTUANTE (pílula de site) ------------------ */
+/* Pílula de navegação fixa (mesma do site stolben.com): fundo escuro semi-
+   sólido + blur, borda discreta, sombra simples. Pensada para flutuar sobre
+   um hero escuro/foto (texto branco). Diferente do .ds-topbar (barra de apps
+   com sidebar). Coloque [data-ds-nav] para o JS escurecer ao rolar
+   (classe .is-scrolled). A página precisa de espaço no topo (a nav é fixa).
+   Marque o acento do logo com <span class="ds-nav-accent">. */
+.ds-nav { position: fixed; top: 0; left: 0; right: 0; z-index: 60; display: flex; justify-content: center; padding: 1.1rem 1rem; pointer-events: none; }
+.ds-nav-pill {
+  pointer-events: auto; display: flex; align-items: center; gap: 1.4rem;
+  padding: 0.5rem 0.6rem 0.5rem 1.25rem; font-size: 0.9rem;
+  border-radius: var(--ds-radius-pill);
+  background: rgba(15, 17, 21, 0.72);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  -webkit-backdrop-filter: blur(14px); backdrop-filter: blur(14px);
+  box-shadow: 0 12px 34px rgba(0, 0, 0, 0.22);
+  transition: background var(--ds-dur), box-shadow var(--ds-dur);
+}
+.ds-nav.is-scrolled .ds-nav-pill {
+  background: rgba(15, 17, 21, 0.9);
+  box-shadow: 0 14px 38px rgba(0, 0, 0, 0.3);
+}
+/* .ds-nav-pill .ds-* eleva a especificidade acima de `.ds-root a {color:inherit}` */
+.ds-nav-pill .ds-nav-brand { color: #fff; font-family: var(--ds-font-display); font-weight: 600; letter-spacing: -0.02em; font-size: 0.95rem; }
+.ds-nav-pill .ds-nav-brand .ds-nav-accent { color: var(--ds-accent-light); }
+.ds-nav-links { display: flex; align-items: center; gap: 1.1rem; list-style: none; margin: 0; padding: 0; }
+.ds-nav-pill .ds-nav-links a { color: var(--ds-on-dark-dim); font-size: 0.88rem; transition: color var(--ds-dur-fast); }
+.ds-nav-pill .ds-nav-links a:hover, .ds-nav-pill .ds-nav-links a.is-active { color: #fff; }
+.ds-nav-actions { display: flex; align-items: center; gap: 0.6rem; }
+.ds-nav-pill .ds-nav-cta { background: #fff; color: #000; padding: 0.45rem 1.1rem; border-radius: var(--ds-radius-pill); font-weight: 500; white-space: nowrap; transition: background var(--ds-dur-fast); }
+.ds-nav-pill .ds-nav-cta:hover { background: var(--ds-accent-50); }
+/* Controle de tema na nav. Duas opções:
+   (a) 3-vias (recomendado): .ds-segment.ds-mode + [data-ds-theme-mode] com
+       botões claro/auto/escuro — já fica em vidro dentro da pílula.
+   (b) Simples (2 estados): .ds-nav-toggle + [data-ds-dark-toggle] com dois
+       ícones <svg class="ds-icon-moon"> e <svg class="ds-icon-sun">. */
+.ds-nav-pill .ds-segment { background: rgba(255, 255, 255, 0.08); border-color: rgba(255, 255, 255, 0.18); }
+.ds-nav-pill .ds-segment button { color: rgba(255, 255, 255, 0.65); }
+.ds-nav-pill .ds-segment button:hover { color: #fff; }
+.ds-nav-pill .ds-segment button.is-active { background: rgba(255, 255, 255, 0.18); color: #fff; box-shadow: none; }
+
+.ds-nav-toggle { display: inline-flex; align-items: center; justify-content: center; width: 2.1rem; height: 2.1rem; padding: 0; color: #fff; cursor: pointer; background: rgba(255, 255, 255, 0.08); border: 1px solid rgba(255, 255, 255, 0.28); border-radius: var(--ds-radius-pill); transition: background var(--ds-dur-fast), border-color var(--ds-dur-fast); }
+.ds-nav-toggle:hover { background: rgba(255, 255, 255, 0.18); border-color: rgba(255, 255, 255, 0.45); }
+.ds-nav-toggle svg { width: 1.05rem; height: 1.05rem; }
+.ds-nav-toggle .ds-icon-sun { display: none; }
+.ds-dark .ds-nav-toggle .ds-icon-moon { display: none; }
+.ds-dark .ds-nav-toggle .ds-icon-sun { display: inline; }
 
 /* ------------------------------ CARTÕES ------------------------------ */
 .ds-card { background: var(--ds-surface); border: 1px solid var(--ds-line); border-radius: var(--ds-radius-lg); padding: var(--ds-space-6); transition: box-shadow var(--ds-dur-slow) var(--ds-ease), transform var(--ds-dur) var(--ds-ease); }
@@ -459,6 +509,9 @@
   /* alvos de toque maiores */
   .ds-icon-btn { width: 2.5rem; height: 2.5rem; }
   .ds-sidebar-link { padding-top: 0.7rem; padding-bottom: 0.7rem; }
+
+  /* nav flutuante de site: os links colapsam (mantém brand + ações/CTA) */
+  .ds-nav-links { display: none; }
 
   /* topbar respeita safe-area, mostra o hambúrguer e aperta o espaçamento */
   .ds-topbar { gap: 0.5rem; padding-left: max(0.85rem, env(safe-area-inset-left)); padding-right: max(0.85rem, env(safe-area-inset-right)); }
