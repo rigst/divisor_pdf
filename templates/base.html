@@ -11,12 +11,9 @@
          'auto' (sem preferência salva) segue o sistema. -->
     <script>(function(){var e=document.documentElement;e.classList.add("js");try{var m=localStorage.getItem("ds-theme-mode");if(m==="dark"||(!m&&matchMedia("(prefers-color-scheme:dark)").matches))e.classList.add("ds-dark");}catch(x){}})();</script>
 
-    <!-- Google Fonts (alinhado ao design system Stölben) -->
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Manrope:wght@400;500;600;700&display=swap" rel="stylesheet">
-
     {% load static %}
+    <!-- Fontes auto-hospedadas (sem CDN externo — alinhado ao design system Stölben) -->
+    <link rel="stylesheet" href="{% static 'fonts/fonts.css' %}">
     <!-- Design system Stölben (tokens + componentes .ds-*) -->
     <link rel="stylesheet" href="{% static 'css/stolben-ui.css' %}">
     <!-- Camada específica do app (sobre os tokens do DS) -->

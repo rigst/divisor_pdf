@@ -89,3 +89,9 @@ Comandos manuais equivalentes:
 sudo systemctl restart divisor_pdf
 sudo systemctl restart divisor_celery
 ```
+
+## Licença
+
+Este projeto é distribuído sob a **GNU Affero General Public License v3.0** (ver [LICENSE](LICENSE)).
+
+A compressão de PDFs usa o [Ghostscript](https://www.ghostscript.com/) (AGPL-3.0, Artifex Software), invocado como processo externo. O código-fonte completo deste sistema está disponível em <https://github.com/rigst/divisor_pdf>.
