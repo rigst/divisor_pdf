@@ -95,3 +95,5 @@ sudo systemctl restart divisor_celery
 Este projeto é distribuído sob a **GNU Affero General Public License v3.0** (ver [LICENSE](LICENSE)).
 
 A compressão de PDFs usa o [Ghostscript](https://www.ghostscript.com/) (AGPL-3.0, Artifex Software), invocado como processo externo. O código-fonte completo deste sistema está disponível em <https://github.com/rigst/divisor_pdf>.
+
+O inventário das bibliotecas de terceiros está em [docs/LICENCAS-TERCEIROS.md](docs/LICENCAS-TERCEIROS.md), regenerável com `./venv/bin/python scripts/licencas_terceiros.py`.
