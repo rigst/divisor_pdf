@@ -9,7 +9,12 @@ from django.urls import reverse
 
 from .forms import AceiteForm
 from .models import AceiteLegal, DocumentoLegal, OrigemAceite, StatusDocumento, TipoDocumento
-from .services import documentos_pendentes, historico, registrar_aceite
+from .services import (
+    documentos_pendentes,
+    documentos_vigentes,
+    historico,
+    registrar_aceite,
+)
 
 
 def _destino_pos_aceite():
@@ -70,6 +75,38 @@ def versao(request, tipo, versao):
             "documento": documento,
             "versoes": historico(tipo),
             "e_versao_vigente": documento.status == StatusDocumento.PUBLICADO,
+        },
+    )
+
+
+def aceite_visitante(request):
+    """Tela de aceite antes de criar uma conta de visitante.
+
+    Existe como página, e não como checkbox no login, por dois motivos: o texto
+    que a pessoa precisa ler cabe numa página e não num canto do formulário, e o
+    aceite deixa de ser um detalhe ao lado de um botão para ser o próprio passo.
+
+    O formulário posta na rota que cada projeto usa para criar o visitante
+    (`LEGAL_VISITOR_ACTION`), com os campos extras que aquela view espera
+    (`LEGAL_VISITOR_EXTRA`) — é o que mantém esta tela igual entre os sistemas
+    sem que o app `legal` precise saber como cada um cria a conta.
+    """
+    destino = getattr(settings, "LEGAL_VISITOR_ACTION", None)
+    if not destino:
+        raise Http404("Acesso de visitante não configurado neste sistema.")
+
+    vigentes = documentos_vigentes()
+    if not vigentes:
+        raise Http404("Nenhum documento publicado.")
+
+    return render(
+        request,
+        "legal/aceite.html",
+        {
+            "form": AceiteForm(),
+            "documentos": list(vigentes.values()),
+            "action": reverse(destino),
+            "campos_extras": getattr(settings, "LEGAL_VISITOR_EXTRA", {}),
         },
     )
 

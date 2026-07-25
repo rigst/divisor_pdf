@@ -1,50 +1,51 @@
 {% extends "base.html" %}
 
-{% block title %}{{ documento.titulo }} — Divisor de PDFs{% endblock %}
+{% block title %}{{ documento.titulo }} · Divisor de PDFs{% endblock %}
 
 {% block content %}
-<main class="legal-page">
+<div class="legal-page">
     <article class="legal-doc">
         <header class="legal-doc-header">
-            <h1>{{ documento.titulo }}</h1>
-            <p class="legal-doc-meta">
-                Versão {{ documento.versao }} ·
-                {% if documento.vigente_desde %}vigente desde {{ documento.vigente_desde|date:"d/m/Y" }}{% endif %}
-                {% if not e_versao_vigente %} · <strong>versão arquivada</strong>{% endif %}
+            <p class="legal-eyebrow">
+                {% if documento.tipo == 'termos' %}Termos{% else %}Privacidade{% endif %}
             </p>
-            {% if not e_versao_vigente %}
-                <p class="legal-doc-aviso">
-                    Você está lendo uma versão anterior, mantida para consulta.
-                    {% if documento.tipo == 'termos' %}
-                        Ver a <a href="{% url 'termos' %}">versão vigente</a>.
-                    {% else %}
-                        Ver a <a href="{% url 'privacidade' %}">versão vigente</a>.
-                    {% endif %}
-                </p>
-            {% endif %}
+            <h1>{{ documento.titulo }}</h1>
+            {% include "legal/_registro.html" %}
         </header>
 
-        <div class="legal-doc-corpo">
+        {% if not e_versao_vigente %}
+            <p class="legal-aviso">
+                Esta é uma versão anterior, mantida para consulta.
+                {% if documento.tipo == 'termos' %}
+                    <a href="{% url 'termos' %}">Ler a versão vigente</a>
+                {% else %}
+                    <a href="{% url 'privacidade' %}">Ler a versão vigente</a>
+                {% endif %}
+            </p>
+        {% endif %}
+
+        <div class="legal-corpo">
             {{ documento.corpo_html|safe }}
         </div>
 
-        <footer class="legal-doc-footer">
-            {% if documento.tipo == 'termos' %}
-                <a href="{% url 'privacidade' %}">Política de Privacidade</a>
-            {% else %}
-                <a href="{% url 'termos' %}">Termos de Uso</a>
-            {% endif %}
-            · <a href="/">Voltar ao início</a>
+        <footer class="legal-doc-rodape">
+            <nav class="legal-atalhos" aria-label="Outros documentos">
+                {% if documento.tipo == 'termos' %}
+                    <a href="{% url 'privacidade' %}">Política de Privacidade</a>
+                {% else %}
+                    <a href="{% url 'termos' %}">Termos de Uso</a>
+                {% endif %}
+                <a href="/">Voltar ao início</a>
+            </nav>
 
             {% if versoes|length > 1 %}
-                <details class="legal-doc-historico">
-                    <summary>Histórico de versões</summary>
+                <details class="legal-historico">
+                    <summary>Versões anteriores</summary>
                     <ul>
                         {% for v in versoes %}
                             <li>
                                 <a href="{% url 'legal:versao' v.tipo v.versao %}">Versão {{ v.versao }}</a>
-                                — {{ v.publicado_em|date:"d/m/Y" }}
-                                {% if v.pk == documento.pk %}(esta){% endif %}
+                                <span>{{ v.publicado_em|date:"d/m/Y" }}{% if v.pk == documento.pk %} · em vigor{% endif %}</span>
                             </li>
                         {% endfor %}
                     </ul>
@@ -52,5 +53,5 @@
             {% endif %}
         </footer>
     </article>
-</main>
+</div>
 {% endblock %}
