@@ -27,6 +27,10 @@ ALLOWED_HOSTS = [
 # Application definition
 
 INSTALLED_APPS = [
+    # O unfold precisa vir antes do admin: é assim que os templates dele
+    # sobrescrevem os do django.contrib.admin.
+    'unfold',
+    'unfold.contrib.filters',
     'django.contrib.admin',
     'django.contrib.auth',
     'django.contrib.contenttypes',
@@ -35,8 +39,12 @@ INSTALLED_APPS = [
     'django.contrib.staticfiles',
     # Apps do projeto
     'splitter',
+    'legal',
 ]
 
+# O AceiteObrigatorioMiddleware do app `legal` NÃO entra aqui: ele existe para
+# forçar o re-aceite de usuários autenticados, e este projeto não tem contas.
+# O aceite é anônimo, validado no próprio upload (splitter/views.py).
 MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
@@ -46,6 +54,27 @@ MIDDLEWARE = [
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
 ]
+
+UNFOLD = {
+    'SITE_TITLE': 'Divisor de PDFs',
+    'SITE_HEADER': 'Divisor de PDFs',
+    'SITE_SUBHEADER': 'Administração',
+    'SHOW_HISTORY': True,
+    'SHOW_VIEW_ON_SITE': False,
+    'COLORS': {
+        # Violeta do tema do app (ds-theme-violet), para o admin não parecer
+        # o painel de outro sistema.
+        'primary': {
+            '50': '245 243 255', '100': '237 233 254', '200': '221 214 254',
+            '300': '196 181 253', '400': '167 139 250', '500': '139 92 246',
+            '600': '124 58 237', '700': '109 40 217', '800': '91 33 182',
+            '900': '76 29 149', '950': '46 16 101',
+        },
+    },
+}
+
+# Destino após o aceite nas telas do app `legal`; aqui não há dashboard.
+LEGAL_REDIRECT_URL = '/'
 
 ROOT_URLCONF = 'config.urls'
 

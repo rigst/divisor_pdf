@@ -959,3 +959,89 @@ html {
     .feature-band.is-visible .reveal-child { animation: none; }
     .ds-progress-fill::after { animation: none; }
 }
+
+/* =========================================================================
+   PÁGINAS LEGAIS E ACEITE (app `legal`)
+   O texto vem do banco, renderizado de Markdown: estiliza-se o container e a
+   tipografia do corpo, não classes por elemento.
+   ========================================================================= */
+
+.legal-page {
+    max-width: 52rem;
+    margin: 0 auto;
+    padding: 3rem 1.25rem 4rem;
+}
+
+.legal-doc-header h1 { margin: 0 0 .25rem; }
+
+.legal-doc-meta {
+    color: var(--ds-t-500);
+    font-size: .875rem;
+    margin: 0 0 1.5rem;
+}
+
+.legal-doc-aviso {
+    background: var(--ds-panel);
+    border: 1px solid var(--ds-line);
+    border-radius: var(--ds-radius-md);
+    padding: .75rem 1rem;
+    font-size: .875rem;
+    margin-bottom: 1.5rem;
+}
+
+.legal-doc-corpo { line-height: 1.7; }
+.legal-doc-corpo h2 { margin: 2rem 0 .5rem; font-size: 1.15rem; }
+.legal-doc-corpo h3 { margin: 1.5rem 0 .5rem; font-size: 1rem; }
+.legal-doc-corpo p,
+.legal-doc-corpo li { color: var(--ds-t-700); }
+.legal-doc-corpo ul,
+.legal-doc-corpo ol { padding-left: 1.25rem; margin: .5rem 0 1rem; }
+.legal-doc-corpo li { margin-bottom: .35rem; }
+
+.legal-doc-footer {
+    margin-top: 2rem;
+    padding-top: 1rem;
+    border-top: 1px solid var(--ds-line);
+    font-size: .875rem;
+    color: var(--ds-t-500);
+}
+
+.legal-doc-historico { margin-top: 1rem; }
+.legal-doc-historico summary { cursor: pointer; }
+.legal-doc-historico ul { margin: .5rem 0 0; padding-left: 1.25rem; }
+
+/* Checkbox de aceite, no formulário de upload */
+.legal-aceite { margin: 1rem 0 .5rem; }
+.legal-aceite label {
+    display: flex;
+    align-items: flex-start;
+    gap: .625rem;
+    font-size: .875rem;
+    line-height: 1.5;
+    cursor: pointer;
+    color: var(--ds-t-700);
+}
+.legal-aceite input[type="checkbox"] {
+    width: 1.05rem;
+    height: 1.05rem;
+    margin-top: .1rem;
+    flex: 0 0 auto;
+    accent-color: var(--ds-accent);
+    cursor: pointer;
+}
+.legal-aceite-erro label { color: var(--ds-danger); }
+.legal-aceite-msg {
+    margin: .375rem 0 0 1.675rem;
+    font-size: .8125rem;
+    color: var(--ds-danger);
+}
+
+/* `.ds-root a { color: inherit }` (0,1,1) venceria classe simples (0,1,0):
+   os links do corpo legal precisam de seletor de força equivalente. */
+.legal-doc-corpo a,
+.legal-doc-footer a,
+.legal-doc-aviso a,
+.legal-aceite a { color: var(--ds-accent); }
+.legal-doc-corpo a:hover,
+.legal-doc-footer a:hover,
+.legal-aceite a:hover { color: var(--ds-accent-dark); }

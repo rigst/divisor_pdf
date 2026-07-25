@@ -3,11 +3,13 @@ Admin do app Splitter.
 """
 
 from django.contrib import admin
+from unfold.admin import ModelAdmin
+
 from .models import SplitJob
 
 
 @admin.register(SplitJob)
-class SplitJobAdmin(admin.ModelAdmin):
+class SplitJobAdmin(ModelAdmin):
     list_display = [
         'id', 'status', 'total_input_size_mb', 'max_size_mb',
         'total_output_files', 'created_at', 'completed_at', 'cleaned_up'

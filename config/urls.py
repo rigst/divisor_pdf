@@ -4,12 +4,15 @@ URL configuration for config project.
 
 from django.contrib import admin
 from django.urls import path, include
-from django.views.generic import TemplateView
+
+from legal import views as legal_views
 
 urlpatterns = [
     path('admin/', admin.site.urls),
-    # Páginas legais (LGPD): acessíveis sem login.
-    path('privacidade/', TemplateView.as_view(template_name='legal/privacidade.html'), name='privacidade'),
-    path('termos/', TemplateView.as_view(template_name='legal/termos.html'), name='termos'),
+    # Páginas legais (LGPD): acessíveis sem login. O texto vem do banco (app
+    # `legal`), versionado — os nomes de rota seguem os mesmos de antes.
+    path('privacidade/', legal_views.privacidade, name='privacidade'),
+    path('termos/', legal_views.termos, name='termos'),
+    path('legal/', include('legal.urls')),
     path('', include('splitter.urls')),
 ]

@@ -233,6 +233,14 @@
                 </div>
             </div>
 
+            <!-- Aceite dos termos: exigido uma vez por sessão, antes do primeiro envio.
+                 Some depois de aceito; a validação que vale é a do servidor. -->
+            {% if precisa_aceite %}
+                <div id="aceite-wrapper" style="display: none;">
+                    {% include "legal/_checkbox_aceite.html" with field=form_aceite.aceite_legal %}
+                </div>
+            {% endif %}
+
             <!-- Submit Button -->
             <button type="submit" id="submit-btn" class="ds-btn ds-btn--solid ds-btn--block" style="display: none;" disabled>
                 <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">

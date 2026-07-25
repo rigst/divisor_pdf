@@ -46,9 +46,17 @@ def _safe_pdf_filename(filename: str, used_names: set[str]) -> str:
 
 def index(request):
     """Renderiza a página principal do aplicativo."""
+    from legal.forms import AceiteForm
+    from legal.services import aceite_anonimo_valido
+
+    # Uma vez aceito na sessão, o checkbox some — pedir de novo a cada envio
+    # seria atrito sem ganho: a prova do aceite daquela sessão já está gravada.
+    ja_aceitou = aceite_anonimo_valido(request)
     context = {
         'max_upload_size_mb': settings.MAX_UPLOAD_SIZE_MB,
         'max_total_upload_mb': settings.MAX_TOTAL_UPLOAD_MB,
+        'precisa_aceite': not ja_aceitou,
+        'form_aceite': None if ja_aceitou else AceiteForm(),
     }
     return render(request, 'splitter/index.html', context)
 
@@ -70,8 +78,22 @@ def upload(request):
         - 202: {job_id, task_id, message}
         - 400: {error} em caso de validação falha
     """
+    from legal.models import OrigemAceite
+    from legal.services import aceite_anonimo_valido, registrar_aceite
+
     from .models import SplitJob
     from .tasks import process_split_job
+
+    # Aceite dos termos: é aqui que ele vale. O checkbox no formulário e o
+    # JavaScript que trava o botão são conveniência; quem recusa o envio sem
+    # aceite é o servidor, senão bastaria o inspetor do navegador para burlar.
+    if not aceite_anonimo_valido(request):
+        if request.POST.get('aceite_legal') not in ('true', '1', 'on'):
+            return JsonResponse(
+                {'error': 'É preciso aceitar os Termos de Uso e a Política de Privacidade para enviar arquivos.'},
+                status=400,
+            )
+        registrar_aceite(request, origem=OrigemAceite.UPLOAD_ANONIMO)
 
     # Validar nível de compressão
     compress_level = request.POST.get('compress_level', 'none').lower()

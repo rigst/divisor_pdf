@@ -48,6 +48,10 @@ document.addEventListener('DOMContentLoaded', () => {
     const timeEstimate = document.getElementById('time-estimate');
     const timeEstimateTotal = document.getElementById('time-estimate-total');
     const submitBtn = document.getElementById('submit-btn');
+    // Aceite dos termos: só existe até ser aceito na sessão (o servidor decide
+    // se renderiza). Quando ausente, aceiteOk() devolve true.
+    const aceiteWrapper = document.getElementById('aceite-wrapper');
+    const aceiteCheckbox = document.getElementById('id_aceite_legal');
 
     // Processing & progress UI
     const processingSection = document.getElementById('processing-section');
@@ -374,12 +378,21 @@ document.addEventListener('DOMContentLoaded', () => {
 
         // Habilitar ou desabilitar o botão se nenhuma ação estiver selecionada
         const hasAction = (compressLevel !== 'none' || isSplitChecked);
-        if (selectedFiles.length > 0 && hasAction) {
+        if (selectedFiles.length > 0 && hasAction && aceiteOk()) {
             submitBtn.disabled = false;
         } else {
             submitBtn.disabled = true;
         }
         updateInitialTimeEstimate();
+    }
+
+    // O checkbox só é renderizado enquanto o aceite não foi dado nesta sessão.
+    function aceiteOk() {
+        return !aceiteCheckbox || aceiteCheckbox.checked;
+    }
+
+    if (aceiteCheckbox) {
+        aceiteCheckbox.addEventListener('change', updateActionButtonText);
     }
 
     // --- Drag & Drop ---
@@ -533,6 +546,7 @@ document.addEventListener('DOMContentLoaded', () => {
         
         updateActionButtonText();
         updateInitialTimeEstimate();
+        if (aceiteWrapper) { aceiteWrapper.style.display = 'block'; }
         submitBtn.style.display = 'inline-flex';
     }
 
@@ -562,6 +576,9 @@ document.addEventListener('DOMContentLoaded', () => {
         
         formData.append('compress_level', compressLevel);
         formData.append('should_split', isSplitChecked ? 'true' : 'false');
+        if (aceiteCheckbox && aceiteCheckbox.checked) {
+            formData.append('aceite_legal', 'on');
+        }
 
         if (isSplitChecked) {
             const max_size_mb = parseFloat(maxSizeInput.value);

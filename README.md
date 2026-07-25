@@ -90,6 +90,23 @@ sudo systemctl restart divisor_pdf
 sudo systemctl restart divisor_celery
 ```
 
+## Conformidade legal (LGPD / Marco Civil)
+
+O app `legal` versiona os Termos de Uso e a Política de Privacidade e registra o aceite.
+Como aqui não há cadastro, o aceite é **anônimo e preso à sessão**: pedido uma vez antes
+do primeiro envio, com checkbox desmarcado e validação no servidor, e gravado com data,
+hora, IP, navegador, identificador de sessão e o `sha256` do texto exato aceito.
+
+Os registros de acesso do nginx são mantidos por **6 meses**, como exige o art. 15 do
+Marco Civil (`deploy/logrotate/stolben-acesso` e `deploy/nginx_acesso.py`).
+
+O procedimento completo está em [docs/CONFORMIDADE.md](docs/CONFORMIDADE.md).
+
+```bash
+./venv/bin/python manage.py importar_documentos_legais --publicar  # seed inicial
+./venv/bin/python manage.py exportar_documentos_legais             # espelho em git
+```
+
 ## Licença
 
 Este projeto é distribuído sob a **GNU Affero General Public License v3.0** (ver [LICENSE](LICENSE)).

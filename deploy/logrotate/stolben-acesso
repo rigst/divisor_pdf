@@ -1,0 +1,35 @@
+# Registros de acesso dos apps Stölben — guarda de 6 meses.
+#
+# Exigência do art. 15 do Marco Civil da Internet (Lei 12.965/2014): o provedor
+# de aplicação deve manter os registros de acesso a aplicações por 6 meses.
+# 200 rotações diárias cobrem o prazo com folga (~100 MB/ano comprimidos no
+# volume atual de tráfego).
+#
+# Os logs ficam em /var/log/nginx/acesso/, e não soltos em /var/log/nginx/, de
+# propósito: o /etc/logrotate.d/nginx do sistema rotaciona /var/log/nginx/*.log
+# a cada 14 dias. Como esse glob não é recursivo, o subdiretório escapa dele —
+# sem entrada duplicada no logrotate e sem precisar editar um arquivo do
+# pacote, que passaria a pedir confirmação de conffile em todo upgrade.
+#
+# Instalar UMA vez no servidor (serve a todos os apps):
+#   sudo install -d -o root -g adm -m 0755 /var/log/nginx/acesso
+#   sudo cp deploy/logrotate/stolben-acesso /etc/logrotate.d/stolben-acesso
+#   sudo logrotate -d /etc/logrotate.d/stolben-acesso   # simulação
+#
+# E, no server block de cada app em /etc/nginx/sites-enabled/:
+#   access_log /var/log/nginx/acesso/<app>.access.log;
+
+/var/log/nginx/acesso/*.log {
+    daily
+    rotate 200
+    compress
+    delaycompress
+    dateext
+    missingok
+    notifempty
+    create 0640 www-data adm
+    sharedscripts
+    postrotate
+        [ -f /var/run/nginx.pid ] && kill -USR1 $(cat /var/run/nginx.pid)
+    endscript
+}
