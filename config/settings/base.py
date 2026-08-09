@@ -147,8 +147,11 @@ MAX_TOTAL_UPLOAD_SIZE = MAX_TOTAL_UPLOAD_MB * 1024 * 1024
 DATA_UPLOAD_MAX_MEMORY_SIZE = 10 * 1024 * 1024  # 10 MB em memória, resto vai para disco
 FILE_UPLOAD_MAX_MEMORY_SIZE = 10 * 1024 * 1024
 
-# Diretório para uploads temporários
-FILE_UPLOAD_TEMP_DIR = str(BASE_DIR / 'media' / 'tmp')
+# Diretório para uploads temporários. Configurável porque o Django exige que
+# ele exista — `check` falha com files.E001 se não existir — e nem todo
+# ambiente provisiona media/tmp dentro do código: em CI o diretório não existe,
+# e em produção pode ficar em outro volume.
+FILE_UPLOAD_TEMP_DIR = os.getenv('FILE_UPLOAD_TEMP_DIR', str(BASE_DIR / 'media' / 'tmp'))
 
 # Tempo máximo para cada chamada do Ghostscript
 GHOSTSCRIPT_TIMEOUT_SECONDS = int(os.getenv('GHOSTSCRIPT_TIMEOUT_SECONDS', '300'))

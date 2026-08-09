@@ -35,6 +35,9 @@ jobs:
         DB_HOST=localhost
         DB_PORT=5432
         REDIS_URL=redis://localhost:6379/1
+        # O Django exige que FILE_UPLOAD_TEMP_DIR exista (files.E001), e
+        # media/tmp não vem no repositório.
+        FILE_UPLOAD_TEMP_DIR=/tmp
 
       # Primeira adoção: tudo reporta antes de bloquear. Retire da lista
       # conforme cada etapa zerar.
