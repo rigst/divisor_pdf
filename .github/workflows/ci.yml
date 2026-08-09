@@ -1,0 +1,41 @@
+name: CI
+
+# O pipeline vive em github.com/rigst/ci. Ajuste lá vale para todos os projetos.
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  ci:
+    uses: rigst/ci/.github/workflows/python-django.yml@v1
+    secrets: inherit
+    with:
+      python-version: "3.12"
+      django-settings-module: config.settings.production
+      source-paths: "config legal splitter"
+
+      # Os testes rodam nos settings de desenvolvimento (SQLite), então o job
+      # não precisa de Postgres.
+      test-settings-module: config.settings.development
+      postgres: false
+
+      # Valores fictícios, só para o check --deploy conseguir importar os
+      # settings de produção. Nada aqui é segredo real.
+      django-env: |
+        SECRET_KEY=ci-only-9f8e7d6c5b4a3210-NaoEhUmaChaveReal-zyxwvutsrq
+        ALLOWED_HOSTS=example.com
+        DB_NAME=postgres
+        DB_USER=postgres
+        DB_PASSWORD=postgres
+        DB_HOST=localhost
+        DB_PORT=5432
+        REDIS_URL=redis://localhost:6379/1
+
+      # Primeira adoção: tudo reporta antes de bloquear. Retire da lista
+      # conforme cada etapa zerar.
+      soft-fail: "ruff,mypy,pytest,bandit,pip-audit"
