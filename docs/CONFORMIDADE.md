@@ -15,8 +15,8 @@ demais controles. Enquanto não for marcado, o botão de envio fica desabilitado
 
 ```python
 if not aceite_anonimo_valido(request):
-    if request.POST.get('aceite_legal') not in ('true', '1', 'on'):
-        return JsonResponse({'error': ...}, status=400)
+    if request.POST.get("aceite_legal") not in ("true", "1", "on"):
+        return JsonResponse({"error": ...}, status=400)
     registrar_aceite(request, origem=OrigemAceite.UPLOAD_ANONIMO)
 ```
 

@@ -9,12 +9,31 @@ from markdown import markdown
 # Tags que fazem sentido num documento legal. Tudo fora desta lista é removido
 # pelo nh3 — o texto vem do admin, mas é servido para o público e vira prova.
 TAGS_PERMITIDAS = {
-    "h1", "h2", "h3", "h4",
-    "p", "br", "hr",
-    "strong", "em", "b", "i", "u",
-    "ul", "ol", "li",
-    "a", "blockquote", "code", "pre",
-    "table", "thead", "tbody", "tr", "th", "td",
+    "h1",
+    "h2",
+    "h3",
+    "h4",
+    "p",
+    "br",
+    "hr",
+    "strong",
+    "em",
+    "b",
+    "i",
+    "u",
+    "ul",
+    "ol",
+    "li",
+    "a",
+    "blockquote",
+    "code",
+    "pre",
+    "table",
+    "thead",
+    "tbody",
+    "tr",
+    "th",
+    "td",
 }
 
 # `rel` fica fora de propósito: quem o gerencia é o link_rel do nh3, que injeta

@@ -31,7 +31,12 @@ LICENCA_PROJETO = "AGPL-3.0"
 # Programas chamados por subprocess (não linkados ao código do projeto).
 # Formato: (nome, versão, licença, observação)
 PROGRAMAS_EXTERNOS: list[tuple[str, str, str, str]] = [
-    ("Ghostscript", "10.02.1", "AGPL-3.0", "Compressão de PDF (`gs`), chamado em `splitter/services.py`"),
+    (
+        "Ghostscript",
+        "10.02.1",
+        "AGPL-3.0",
+        "Compressão de PDF (`gs`), chamado em `splitter/services.py`",
+    ),
 ]
 
 # Observações que valem manutenção contínua.
@@ -86,9 +91,7 @@ def licenca_de(dist: metadata.Distribution) -> str:
     ]
     classifiers = [c for c in classifiers if c != "OSI Approved"]
     if classifiers:
-        return " / ".join(
-            c.replace("OSI Approved :: ", "") for c in classifiers
-        )
+        return " / ".join(c.replace("OSI Approved :: ", "") for c in classifiers)
 
     # Campo livre: só serve se for curto — muitos pacotes colam a licença inteira.
     livre = (meta.get("License") or "").strip()
@@ -156,16 +159,14 @@ def main() -> int:
             continue
         (diretos if chave in nomes_diretos else transitivos).append(p)
 
-    atencao = [
-        p for p in diretos + transitivos if COPYLEFT.search(p["licenca"])
-    ]
+    atencao = [p for p in diretos + transitivos if COPYLEFT.search(p["licenca"])]
 
     linhas = [
         f"# Licenças de terceiros — {PROJETO}",
         "",
         f"Gerado por `scripts/licencas_terceiros.py` em {date.today().isoformat()} "
         "a partir dos pacotes instalados no venv de produção.",
-        f"Para regenerar: `./venv/bin/python scripts/licencas_terceiros.py`.",
+        "Para regenerar: `./venv/bin/python scripts/licencas_terceiros.py`.",
         "",
         f"O código deste projeto é licenciado sob **{LICENCA_PROJETO}** (ver `LICENSE`). "
         "As bibliotecas abaixo permanecem sob suas licenças originais.",

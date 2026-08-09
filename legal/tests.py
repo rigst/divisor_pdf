@@ -17,8 +17,14 @@ from .utils import calcular_sha256, ip_do_request, renderizar_markdown
 Usuario = get_user_model()
 
 
-def criar_documento(tipo=TipoDocumento.TERMOS, versao="1.0", *, publicar=True, material=True,
-                    corpo="# Título\n\nTexto do documento.\n"):
+def criar_documento(
+    tipo=TipoDocumento.TERMOS,
+    versao="1.0",
+    *,
+    publicar=True,
+    material=True,
+    corpo="# Título\n\nTexto do documento.\n",
+):
     documento = DocumentoLegal.objects.create(
         tipo=tipo, versao=versao, titulo=f"Doc {tipo}", corpo_md=corpo, material=material
     )

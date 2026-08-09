@@ -40,9 +40,7 @@ def escrever(tipo, versao, metadados, corpo):
     destino = caminho(tipo, versao)
     destino.parent.mkdir(parents=True, exist_ok=True)
     cabecalho = "\n".join(f"{chave}: {valor}" for chave, valor in metadados.items())
-    destino.write_text(
-        f"{cabecalho}\n{SEPARADOR}\n{normalizar_texto(corpo)}", encoding="utf-8"
-    )
+    destino.write_text(f"{cabecalho}\n{SEPARADOR}\n{normalizar_texto(corpo)}", encoding="utf-8")
     return destino
 
 

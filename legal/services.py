@@ -37,9 +37,9 @@ def documentos_pendentes(user):
         return materiais
 
     ja_aceitos = set(
-        AceiteLegal.objects.filter(
-            usuario=user, documento__in=materiais
-        ).values_list("documento_id", flat=True)
+        AceiteLegal.objects.filter(usuario=user, documento__in=materiais).values_list(
+            "documento_id", flat=True
+        )
     )
     return [doc for doc in materiais if doc.pk not in ja_aceitos]
 
@@ -67,8 +67,7 @@ def _montar_evidencia(request, vigentes):
         "accept_language": request.META.get("HTTP_ACCEPT_LANGUAGE", ""),
         "seguro": request.is_secure(),
         "versoes_vigentes": {
-            tipo: {"versao": doc.versao, "sha256": doc.sha256}
-            for tipo, doc in vigentes.items()
+            tipo: {"versao": doc.versao, "sha256": doc.sha256} for tipo, doc in vigentes.items()
         },
     }
 
@@ -140,10 +139,7 @@ def documento_publicado(tipo):
 
 def historico(tipo):
     """Versões publicadas e arquivadas, da mais recente para a mais antiga."""
-    return (
-        DocumentoLegal.objects.filter(
-            tipo=tipo,
-            status__in=[StatusDocumento.PUBLICADO, StatusDocumento.ARQUIVADO],
-        )
-        .order_by("-publicado_em")
-    )
+    return DocumentoLegal.objects.filter(
+        tipo=tipo,
+        status__in=[StatusDocumento.PUBLICADO, StatusDocumento.ARQUIVADO],
+    ).order_by("-publicado_em")

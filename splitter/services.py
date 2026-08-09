@@ -20,14 +20,14 @@ class PDFSplitter:
     garantindo que cada parte não exceda o tamanho máximo especificado.
     """
 
-    def __init__(self, max_size_bytes: int, compress_level: str = 'none'):
+    def __init__(self, max_size_bytes: int, compress_level: str = "none"):
         """
         Args:
             max_size_bytes: Tamanho máximo de cada arquivo PDF resultante em bytes.
             compress_level: Nível de compressão Ghostscript ('none', 'low', 'medium', 'high').
         """
         if max_size_bytes <= 0:
-            raise ValueError('O tamanho máximo deve ser maior que zero.')
+            raise ValueError("O tamanho máximo deve ser maior que zero.")
         self.max_size_bytes = max_size_bytes
         self.compress_level = compress_level
         self.warnings = []
@@ -54,7 +54,7 @@ class PDFSplitter:
         output_dir.mkdir(parents=True, exist_ok=True)
 
         if not input_path.exists():
-            raise FileNotFoundError(f'Arquivo não encontrado: {input_path}')
+            raise FileNotFoundError(f"Arquivo não encontrado: {input_path}")
 
         if base_name is None:
             base_name = input_path.stem
@@ -63,14 +63,14 @@ class PDFSplitter:
             reader = PdfReader(str(input_path))
             total_pages = len(reader.pages)
         except Exception as e:
-            raise ValueError(f'Não foi possível abrir o PDF: {e}')
+            raise ValueError(f"Não foi possível abrir o PDF: {e}")
 
         if total_pages == 0:
-            raise ValueError('O PDF não contém páginas.')
+            raise ValueError("O PDF não contém páginas.")
 
         logger.info(
             f'Dividindo "{input_path.name}" ({total_pages} páginas) '
-            f'com limite de {self.max_size_bytes / settings.PDF_SPLIT_BYTES_PER_MB:.1f} MB'
+            f"com limite de {self.max_size_bytes / settings.PDF_SPLIT_BYTES_PER_MB:.1f} MB"
         )
 
         output_files = []
@@ -78,29 +78,25 @@ class PDFSplitter:
         current_start_page = 0
 
         while current_start_page < total_pages:
-            result = self._find_optimal_split(
-                reader, current_start_page, total_pages
-            )
+            result = self._find_optimal_split(reader, current_start_page, total_pages)
             end_page, pdf_bytes = result
 
             # Salvar o PDF da parte
-            output_path = output_dir / f'{base_name}_parte{part_number:03d}.pdf'
+            output_path = output_dir / f"{base_name}_parte{part_number:03d}.pdf"
             output_path.write_bytes(pdf_bytes)
             output_files.append(str(output_path))
 
             pages_in_part = end_page - current_start_page
             size_mb = len(pdf_bytes) / settings.PDF_SPLIT_BYTES_PER_MB
             logger.info(
-                f'  Parte {part_number}: páginas {current_start_page + 1}-{end_page} '
-                f'({pages_in_part} pág, {size_mb:.2f} MB)'
+                f"  Parte {part_number}: páginas {current_start_page + 1}-{end_page} "
+                f"({pages_in_part} pág, {size_mb:.2f} MB)"
             )
 
             current_start_page = end_page
             part_number += 1
 
-        logger.info(
-            f'Divisão concluída: {len(output_files)} arquivo(s) gerado(s)'
-        )
+        logger.info(f"Divisão concluída: {len(output_files)} arquivo(s) gerado(s)")
 
         return output_files
 
@@ -130,30 +126,30 @@ class PDFSplitter:
             page_size_mb = len(first_page_bytes) / settings.PDF_SPLIT_BYTES_PER_MB
             max_size_mb = self.max_size_bytes / settings.PDF_SPLIT_BYTES_PER_MB
             logger.warning(
-                f'Página {start_page + 1} excede o limite de tamanho '
-                f'({page_size_mb:.2f} MB). '
-                f'Incluindo-a em arquivo individual.'
+                f"Página {start_page + 1} excede o limite de tamanho "
+                f"({page_size_mb:.2f} MB). "
+                f"Incluindo-a em arquivo individual."
             )
             self.warnings.append(
-                f'A página {start_page + 1} ficou com {page_size_mb:.2f} MB, '
-                f'acima do limite de {max_size_mb:.2f} MB. Uma página individual '
-                'não pode ser dividida sem alterar o conteúdo.'
+                f"A página {start_page + 1} ficou com {page_size_mb:.2f} MB, "
+                f"acima do limite de {max_size_mb:.2f} MB. Uma página individual "
+                "não pode ser dividida sem alterar o conteúdo."
             )
             return start_page + 1, first_page_bytes
 
         # Se a primeira página cabe, faz busca binária para encontrar o máximo de páginas que cabem
         optimal_bytes = first_page_bytes
-        
+
         while low <= high:
             mid = (low + high) // 2
-            
+
             # Se mid é a primeira página, já testamos e cabe
             if mid == start_page + 1:
                 low = mid + 1
                 continue
-                
+
             pdf_bytes = self._render_pages(reader, start_page, mid)
-            
+
             if len(pdf_bytes) <= self.max_size_bytes:
                 # Cabe! Tenta incluir mais páginas (busca à direita)
                 optimal_end = mid
@@ -165,9 +161,7 @@ class PDFSplitter:
 
         return optimal_end, optimal_bytes
 
-    def _render_pages(
-        self, reader: PdfReader, start_page: int, end_page: int
-    ) -> bytes:
+    def _render_pages(self, reader: PdfReader, start_page: int, end_page: int) -> bytes:
         """
         Renderiza um subconjunto de páginas em um PDF em memória,
         comprimindo-o com Ghostscript se a compressão estiver ativa.
@@ -193,7 +187,7 @@ class PDFSplitter:
         writer.write(buffer)
         raw_bytes = buffer.getvalue()
 
-        if self.compress_level and self.compress_level != 'none':
+        if self.compress_level and self.compress_level != "none":
             return self._compress_bytes(raw_bytes, self.compress_level)
 
         return raw_bytes
@@ -202,30 +196,30 @@ class PDFSplitter:
         """
         Comprime bytes de PDF utilizando Ghostscript de forma segura em diretório temporário.
         """
-        import tempfile
         import subprocess
+        import tempfile
         from pathlib import Path
 
-        gs_setting = PDFCompressor.SETTINGS_MAP.get(compress_level, '/ebook')
-        
+        gs_setting = PDFCompressor.SETTINGS_MAP.get(compress_level, "/ebook")
+
         with tempfile.TemporaryDirectory() as tmpdir:
-            input_path = Path(tmpdir) / 'input.pdf'
-            output_path = Path(tmpdir) / 'output.pdf'
-            
+            input_path = Path(tmpdir) / "input.pdf"
+            output_path = Path(tmpdir) / "output.pdf"
+
             input_path.write_bytes(raw_bytes)
-            
+
             cmd = [
-                'gs',
-                '-sDEVICE=pdfwrite',
-                '-dCompatibilityLevel=1.4',
-                f'-dPDFSETTINGS={gs_setting}',
-                '-dNOPAUSE',
-                '-dQUIET',
-                '-dBATCH',
-                f'-sOutputFile={output_path}',
-                str(input_path)
+                "gs",
+                "-sDEVICE=pdfwrite",
+                "-dCompatibilityLevel=1.4",
+                f"-dPDFSETTINGS={gs_setting}",
+                "-dNOPAUSE",
+                "-dQUIET",
+                "-dBATCH",
+                f"-sOutputFile={output_path}",
+                str(input_path),
             ]
-            
+
             try:
                 subprocess.run(
                     cmd,
@@ -237,8 +231,8 @@ class PDFSplitter:
                 if output_path.exists() and output_path.stat().st_size > 0:
                     return output_path.read_bytes()
             except Exception as e:
-                logger.warning(f'Erro na compressão intermediária via Ghostscript: {e}')
-                
+                logger.warning(f"Erro na compressão intermediária via Ghostscript: {e}")
+
         return raw_bytes
 
 
@@ -253,9 +247,9 @@ class PDFCompressor:
     # 'medium' -> Compressão equilibrada (leitura digital) -> /ebook
     # 'high' -> Máxima compressão, menor qualidade (tela) -> /screen
     SETTINGS_MAP = {
-        'low': '/printer',
-        'medium': '/ebook',
-        'high': '/screen',
+        "low": "/printer",
+        "medium": "/ebook",
+        "high": "/screen",
     }
 
     def __init__(self, quality_level: str):
@@ -264,7 +258,7 @@ class PDFCompressor:
             quality_level: 'low', 'medium' ou 'high' (nível de compressão/qualidade).
         """
         if quality_level not in self.SETTINGS_MAP:
-            raise ValueError(f'Nível de qualidade inválido: {quality_level}')
+            raise ValueError(f"Nível de qualidade inválido: {quality_level}")
         self.quality_level = quality_level
         self.gs_setting = self.SETTINGS_MAP[quality_level]
 
@@ -289,23 +283,23 @@ class PDFCompressor:
         output_path.parent.mkdir(parents=True, exist_ok=True)
 
         if not input_path.exists():
-            raise FileNotFoundError(f'PDF de entrada não encontrado: {input_path}')
+            raise FileNotFoundError(f"PDF de entrada não encontrado: {input_path}")
 
         cmd = [
-            'gs',
-            '-sDEVICE=pdfwrite',
-            '-dCompatibilityLevel=1.4',
-            f'-dPDFSETTINGS={self.gs_setting}',
-            '-dNOPAUSE',
-            '-dQUIET',
-            '-dBATCH',
-            f'-sOutputFile={output_path}',
-            str(input_path)
+            "gs",
+            "-sDEVICE=pdfwrite",
+            "-dCompatibilityLevel=1.4",
+            f"-dPDFSETTINGS={self.gs_setting}",
+            "-dNOPAUSE",
+            "-dQUIET",
+            "-dBATCH",
+            f"-sOutputFile={output_path}",
+            str(input_path),
         ]
 
         logger.info(
             f'Comprimindo "{input_path.name}" para "{output_path.name}" '
-            f'usando Ghostscript ({self.quality_level} / {self.gs_setting})...'
+            f"usando Ghostscript ({self.quality_level} / {self.gs_setting})..."
         )
 
         try:
@@ -317,31 +311,33 @@ class PDFCompressor:
                 check=True,
                 timeout=settings.GHOSTSCRIPT_TIMEOUT_SECONDS,
             )
-            
+
             # Validar se o arquivo de saída realmente foi criado e tem conteúdo
             if not output_path.exists() or output_path.stat().st_size == 0:
-                raise RuntimeError('Ghostscript não gerou o PDF de saída ou o arquivo está vazio.')
+                raise RuntimeError("Ghostscript não gerou o PDF de saída ou o arquivo está vazio.")
 
             old_size_mb = input_path.stat().st_size / (1024 * 1024)
             new_size_mb = output_path.stat().st_size / (1024 * 1024)
             reduction = (1 - (new_size_mb / old_size_mb)) * 100
-            
+
             logger.info(
-                f'Compressão concluída com sucesso! '
-                f'{old_size_mb:.2f} MB -> {new_size_mb:.2f} MB '
-                f'({reduction:.1f}% de redução)'
+                f"Compressão concluída com sucesso! "
+                f"{old_size_mb:.2f} MB -> {new_size_mb:.2f} MB "
+                f"({reduction:.1f}% de redução)"
             )
             return True
 
         except subprocess.CalledProcessError as e:
-            err_msg = e.stderr or e.stdout or 'Erro desconhecido.'
-            logger.error(f'Falha no Ghostscript: {err_msg}')
-            raise RuntimeError(f'Falha na compressão do PDF via Ghostscript: {err_msg}')
+            err_msg = e.stderr or e.stdout or "Erro desconhecido."
+            logger.error(f"Falha no Ghostscript: {err_msg}")
+            raise RuntimeError(f"Falha na compressão do PDF via Ghostscript: {err_msg}")
         except subprocess.TimeoutExpired as e:
-            logger.error(f'Ghostscript excedeu o timeout de {settings.GHOSTSCRIPT_TIMEOUT_SECONDS}s')
+            logger.error(
+                f"Ghostscript excedeu o timeout de {settings.GHOSTSCRIPT_TIMEOUT_SECONDS}s"
+            )
             raise RuntimeError(
-                f'Ghostscript excedeu o tempo limite de {settings.GHOSTSCRIPT_TIMEOUT_SECONDS}s'
+                f"Ghostscript excedeu o tempo limite de {settings.GHOSTSCRIPT_TIMEOUT_SECONDS}s"
             ) from e
         except Exception as e:
-            logger.exception('Erro inesperado durante a compressão.')
-            raise RuntimeError(f'Erro ao invocar o compressor de PDF: {e}')
+            logger.exception("Erro inesperado durante a compressão.")
+            raise RuntimeError(f"Erro ao invocar o compressor de PDF: {e}")

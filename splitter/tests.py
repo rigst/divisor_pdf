@@ -3,22 +3,20 @@ import os
 import shutil
 import tempfile
 from pathlib import Path
-from unittest.mock import patch, MagicMock
+from unittest.mock import MagicMock, patch
 
-from django.conf import settings
 from django.core.files.uploadedfile import SimpleUploadedFile
 from django.test import TestCase, override_settings
 from django.utils import timezone
-from pypdf import PdfWriter, PdfReader
+from pypdf import PdfReader, PdfWriter
 
 from .models import SplitJob
-from .services import PDFSplitter, PDFCompressor
-from .tasks import process_split_job, cleanup_expired_sessions
+from .services import PDFCompressor, PDFSplitter
+from .tasks import cleanup_expired_sessions, process_split_job
 from .views import _safe_pdf_filename
 
-
 # Diretório temporário específico para arquivos de teste
-TEMP_MEDIA_ROOT = tempfile.mkdtemp(prefix='divisor_pdf_test_media_')
+TEMP_MEDIA_ROOT = tempfile.mkdtemp(prefix="divisor_pdf_test_media_")
 
 
 def create_dummy_pdf(num_pages=3):
@@ -42,13 +40,13 @@ class PDFServicesTestCase(TestCase):
 
     def setUp(self):
         self.input_pdf_bytes = create_dummy_pdf(num_pages=3)
-        
+
         # Cria arquivos temporários de entrada e saída
-        self.test_dir = os.path.join(TEMP_MEDIA_ROOT, 'services_tests')
+        self.test_dir = os.path.join(TEMP_MEDIA_ROOT, "services_tests")
         os.makedirs(self.test_dir, exist_ok=True)
-        
-        self.input_path = os.path.join(self.test_dir, 'input.pdf')
-        with open(self.input_path, 'wb') as f:
+
+        self.input_path = os.path.join(self.test_dir, "input.pdf")
+        with open(self.input_path, "wb") as f:
             f.write(self.input_pdf_bytes)
 
     def tearDown(self):
@@ -58,14 +56,14 @@ class PDFServicesTestCase(TestCase):
     def test_split_happy_path(self):
         """Testa se a divisão ocorre com sucesso limitando o tamanho em bytes."""
         file_size = os.path.getsize(self.input_path)
-        
+
         # Divide de forma que cada página fique em um arquivo separado
-        max_size_bytes = int(file_size / 2.5)  
+        max_size_bytes = int(file_size / 2.5)
         splitter = PDFSplitter(max_size_bytes)
-        
-        output_dir = os.path.join(self.test_dir, 'output_happy')
-        output_files = splitter.split(self.input_path, output_dir, base_name='test_part')
-        
+
+        output_dir = os.path.join(self.test_dir, "output_happy")
+        output_files = splitter.split(self.input_path, output_dir, base_name="test_part")
+
         # Deve gerar 3 arquivos (um para cada página)
         self.assertEqual(len(output_files), 3)
         for path in output_files:
@@ -82,10 +80,10 @@ class PDFServicesTestCase(TestCase):
         # Limite extremamente baixo que até uma única página excede
         max_size_bytes = 10  # 10 bytes
         splitter = PDFSplitter(max_size_bytes)
-        
-        output_dir = os.path.join(self.test_dir, 'output_large_page')
-        output_files = splitter.split(self.input_path, output_dir, base_name='test_edge')
-        
+
+        output_dir = os.path.join(self.test_dir, "output_large_page")
+        output_files = splitter.split(self.input_path, output_dir, base_name="test_edge")
+
         # Deve gerar 3 arquivos individuais mesmo que cada um tenha excedido o limite de 10 bytes
         # (já que uma página de PDF física não pode ser dividida ao meio)
         self.assertEqual(len(output_files), 3)
@@ -94,53 +92,52 @@ class PDFServicesTestCase(TestCase):
         """Valida que o splitter lança FileNotFoundError se o caminho for inexistente."""
         splitter = PDFSplitter(1024)
         with self.assertRaises(FileNotFoundError):
-            splitter.split('caminho/inexistente.pdf', self.test_dir)
+            splitter.split("caminho/inexistente.pdf", self.test_dir)
 
     def test_split_invalid_pdf(self):
         """Valida que o splitter lança ValueError se o arquivo estiver corrompido ou vazio."""
-        corrupted_path = os.path.join(self.test_dir, 'corrupted.pdf')
-        with open(corrupted_path, 'wb') as f:
-            f.write(b'arquivo de texto qualquer que nao e pdf')
+        corrupted_path = os.path.join(self.test_dir, "corrupted.pdf")
+        with open(corrupted_path, "wb") as f:
+            f.write(b"arquivo de texto qualquer que nao e pdf")
 
         splitter = PDFSplitter(1024)
         with self.assertRaises(ValueError):
             splitter.split(corrupted_path, self.test_dir)
 
-    @patch('subprocess.run')
+    @patch("subprocess.run")
     def test_compress_happy_path(self, mock_run):
         """Testa se a compressão Ghostscript simula corretamente chamada com sucesso."""
         mock_run.return_value = MagicMock(returncode=0)
-        output_path = os.path.join(self.test_dir, 'compressed.pdf')
-        
+        output_path = os.path.join(self.test_dir, "compressed.pdf")
+
         # Como o Ghostscript real é mockado, gravamos bytes de PDF fake
         def fake_gs_effect(*args, **kwargs):
-            with open(output_path, 'wb') as f:
-                f.write(b'%PDF-fake-compressed-bytes')
+            with open(output_path, "wb") as f:
+                f.write(b"%PDF-fake-compressed-bytes")
             return mock_run.return_value
 
         mock_run.side_effect = fake_gs_effect
 
-        compressor = PDFCompressor('medium')
+        compressor = PDFCompressor("medium")
         success = compressor.compress(self.input_path, output_path)
-        
+
         self.assertTrue(success)
         self.assertTrue(os.path.exists(output_path))
         mock_run.assert_called_once()
-        self.assertIn('-dPDFSETTINGS=/ebook', mock_run.call_args[0][0])
+        self.assertIn("-dPDFSETTINGS=/ebook", mock_run.call_args[0][0])
 
-    @patch('subprocess.run')
+    @patch("subprocess.run")
     def test_compress_failed_command(self, mock_run):
         """Valida que lança RuntimeError se o Ghostscript retornar erro de execução."""
         import subprocess
+
         mock_run.side_effect = subprocess.CalledProcessError(
-            returncode=1,
-            cmd=['gs'],
-            stderr='Error in ghostscript processing'
+            returncode=1, cmd=["gs"], stderr="Error in ghostscript processing"
         )
-        
-        output_path = os.path.join(self.test_dir, 'failed.pdf')
-        compressor = PDFCompressor('high')
-        
+
+        output_path = os.path.join(self.test_dir, "failed.pdf")
+        compressor = PDFCompressor("high")
+
         with self.assertRaises(RuntimeError):
             compressor.compress(self.input_path, output_path)
 
@@ -160,126 +157,112 @@ class PDFViewsTestCase(TestCase):
 
     def test_index_view(self):
         """Testa se a página inicial carrega com sucesso."""
-        response = self.client.get('/')
+        response = self.client.get("/")
         self.assertEqual(response.status_code, 200)
-        self.assertContains(response, 'Divisor')
+        self.assertContains(response, "Divisor")
 
     def test_safe_pdf_filename_sanitizes_and_avoids_duplicates(self):
         """Valida normalizacao de nomes antes de gravar uploads em disco."""
         used_names = set()
 
-        first = _safe_pdf_filename('../../relatorio final.pdf', used_names)
-        second = _safe_pdf_filename('../../relatorio final.pdf', used_names)
-        third = _safe_pdf_filename('', used_names)
+        first = _safe_pdf_filename("../../relatorio final.pdf", used_names)
+        second = _safe_pdf_filename("../../relatorio final.pdf", used_names)
+        third = _safe_pdf_filename("", used_names)
 
-        self.assertEqual(first, 'relatorio_final.pdf')
-        self.assertEqual(second, 'relatorio_final_2.pdf')
-        self.assertEqual(third, 'arquivo.pdf')
+        self.assertEqual(first, "relatorio_final.pdf")
+        self.assertEqual(second, "relatorio_final_2.pdf")
+        self.assertEqual(third, "arquivo.pdf")
 
-    @patch('splitter.tasks.process_split_job.delay')
+    @patch("splitter.tasks.process_split_job.delay")
     def test_upload_split_only_happy_path(self, mock_delay):
         """Testa o upload de arquivos válidos solicitando apenas a divisão."""
-        mock_delay.return_value = MagicMock(id='fake_task_id_123')
-        
+        mock_delay.return_value = MagicMock(id="fake_task_id_123")
+
         pdf_file = SimpleUploadedFile(
-            name='test1.pdf',
-            content=self.pdf_bytes,
-            content_type='application/pdf'
+            name="test1.pdf", content=self.pdf_bytes, content_type="application/pdf"
         )
-        
+
         payload = {
-            'files': [pdf_file],
-            'compress_level': 'none',
-            'should_split': 'true',
-            'max_size_mb': '2.0'
+            "files": [pdf_file],
+            "compress_level": "none",
+            "should_split": "true",
+            "max_size_mb": "2.0",
         }
-        
-        response = self.client.post('/api/upload/', payload)
+
+        response = self.client.post("/api/upload/", payload)
         self.assertEqual(response.status_code, 202)
         data = response.json()
-        self.assertIn('job_id', data)
+        self.assertIn("job_id", data)
         mock_delay.assert_called_once()
 
-    @patch('splitter.tasks.process_split_job.delay')
+    @patch("splitter.tasks.process_split_job.delay")
     def test_upload_compress_only_happy_path(self, mock_delay):
         """Testa upload de arquivos solicitando apenas compressão (max_size_mb opcional)."""
-        mock_delay.return_value = MagicMock(id='fake_task_id_456')
-        
+        mock_delay.return_value = MagicMock(id="fake_task_id_456")
+
         pdf_file = SimpleUploadedFile(
-            name='test_compress.pdf',
-            content=self.pdf_bytes,
-            content_type='application/pdf'
+            name="test_compress.pdf", content=self.pdf_bytes, content_type="application/pdf"
         )
-        
-        payload = {
-            'files': [pdf_file],
-            'compress_level': 'medium',
-            'should_split': 'false'
-        }
-        
-        response = self.client.post('/api/upload/', payload)
+
+        payload = {"files": [pdf_file], "compress_level": "medium", "should_split": "false"}
+
+        response = self.client.post("/api/upload/", payload)
         self.assertEqual(response.status_code, 202)
         data = response.json()
-        self.assertIn('job_id', data)
+        self.assertIn("job_id", data)
         mock_delay.assert_called_once()
 
     def test_upload_no_actions_error(self):
         """Testa erro ao tentar enviar sem solicitar compressão nem divisão."""
-        pdf_file = SimpleUploadedFile(name='test.pdf', content=self.pdf_bytes)
-        payload = {
-            'files': [pdf_file],
-            'compress_level': 'none',
-            'should_split': 'false'
-        }
-        response = self.client.post('/api/upload/', payload)
+        pdf_file = SimpleUploadedFile(name="test.pdf", content=self.pdf_bytes)
+        payload = {"files": [pdf_file], "compress_level": "none", "should_split": "false"}
+        response = self.client.post("/api/upload/", payload)
         self.assertEqual(response.status_code, 400)
-        self.assertIn('error', response.json())
+        self.assertIn("error", response.json())
 
     def test_upload_invalid_extension_edge_case(self):
         """Caso de Borda: Envio de arquivo com extensão inválida (.txt)."""
         txt_file = SimpleUploadedFile(
-            name='fake.txt',
-            content=b'Algum texto normal',
-            content_type='text/plain'
+            name="fake.txt", content=b"Algum texto normal", content_type="text/plain"
         )
         payload = {
-            'files': [txt_file],
-            'compress_level': 'none',
-            'should_split': 'true',
-            'max_size_mb': '1.0'
+            "files": [txt_file],
+            "compress_level": "none",
+            "should_split": "true",
+            "max_size_mb": "1.0",
         }
-        response = self.client.post('/api/upload/', payload)
+        response = self.client.post("/api/upload/", payload)
         self.assertEqual(response.status_code, 400)
-        self.assertIn('não é um PDF', response.json()['error'])
+        self.assertIn("não é um PDF", response.json()["error"])
 
     def test_upload_invalid_magic_bytes_edge_case(self):
         """Caso de Borda: Arquivo com extensão .pdf mas que não possui magic bytes válidos (%PDF-)."""
         fake_pdf = SimpleUploadedFile(
-            name='fake.pdf',
-            content=b'Isto nao comeca com por cento PDF',
-            content_type='application/pdf'
+            name="fake.pdf",
+            content=b"Isto nao comeca com por cento PDF",
+            content_type="application/pdf",
         )
         payload = {
-            'files': [fake_pdf],
-            'compress_level': 'none',
-            'should_split': 'true',
-            'max_size_mb': '1.0'
+            "files": [fake_pdf],
+            "compress_level": "none",
+            "should_split": "true",
+            "max_size_mb": "1.0",
         }
-        response = self.client.post('/api/upload/', payload)
+        response = self.client.post("/api/upload/", payload)
         self.assertEqual(response.status_code, 400)
-        self.assertIn('não é um PDF válido', response.json()['error'])
+        self.assertIn("não é um PDF válido", response.json()["error"])
 
     def test_status_invalid_session_edge_case(self):
         """Caso de Borda: Tentativa de acessar status de um job de outra sessão (deve retornar 404)."""
         job = SplitJob.objects.create(
-            session_key='outra_session_id_diferente',
-            original_filenames=['doc.pdf'],
-            compress_level='none',
+            session_key="outra_session_id_diferente",
+            original_filenames=["doc.pdf"],
+            compress_level="none",
             should_split=True,
-            max_size_mb=10.0
+            max_size_mb=10.0,
         )
-        
-        response = self.client.get(f'/api/status/{job.pk}/')
+
+        response = self.client.get(f"/api/status/{job.pk}/")
         self.assertEqual(response.status_code, 404)
 
     def test_download_expired_files_edge_case(self):
@@ -291,38 +274,40 @@ class PDFViewsTestCase(TestCase):
 
         job = SplitJob.objects.create(
             session_key=session_key,
-            original_filenames=['doc.pdf'],
-            compress_level='none',
+            original_filenames=["doc.pdf"],
+            compress_level="none",
             should_split=True,
             max_size_mb=10.0,
             status=SplitJob.Status.COMPLETED,
-            output_zip_path=os.path.join(TEMP_MEDIA_ROOT, 'sessions', session_key, 'output', 'resultado.zip')
+            output_zip_path=os.path.join(
+                TEMP_MEDIA_ROOT, "sessions", session_key, "output", "resultado.zip"
+            ),
         )
-        
-        response = self.client.get(f'/api/download/{job.pk}/')
+
+        response = self.client.get(f"/api/download/{job.pk}/")
         self.assertEqual(response.status_code, 404)
-        self.assertIn('removido', response.content.decode('utf-8'))
+        self.assertIn("removido", response.content.decode("utf-8"))
 
     def test_status_returns_processing_warnings(self):
         """Valida que avisos salvos no job são enviados ao frontend."""
         session_key = self.client.session.session_key
-        warnings = ['Uma página individual excedeu o limite solicitado.']
+        warnings = ["Uma página individual excedeu o limite solicitado."]
         job = SplitJob.objects.create(
             session_key=session_key,
-            original_filenames=['doc.pdf'],
-            compress_level='none',
+            original_filenames=["doc.pdf"],
+            compress_level="none",
             should_split=True,
             max_size_mb=2.0,
             status=SplitJob.Status.COMPLETED,
             total_output_files=1,
             total_output_size_mb=2.1,
-            output_zip_path='/tmp/fake.pdf',
-            processing_warnings=warnings
+            output_zip_path="/tmp/fake.pdf",
+            processing_warnings=warnings,
         )
 
-        response = self.client.get(f'/api/status/{job.pk}/')
+        response = self.client.get(f"/api/status/{job.pk}/")
         self.assertEqual(response.status_code, 200)
-        self.assertEqual(response.json()['warnings'], warnings)
+        self.assertEqual(response.json()["warnings"], warnings)
 
     @override_settings(MAX_TOTAL_UPLOAD_MB=1, MAX_TOTAL_UPLOAD_SIZE=1024 * 1024)
     def test_upload_rejects_accumulated_session_quota(self):
@@ -330,29 +315,30 @@ class PDFViewsTestCase(TestCase):
         session_key = self.client.session.session_key
         SplitJob.objects.create(
             session_key=session_key,
-            original_filenames=['old.pdf'],
+            original_filenames=["old.pdf"],
             total_input_size_mb=0.9999,
-            compress_level='none',
+            compress_level="none",
             should_split=True,
             max_size_mb=1.0,
             status=SplitJob.Status.COMPLETED,
-            cleaned_up=False
+            cleaned_up=False,
         )
 
         pdf_file = SimpleUploadedFile(
-            name='new.pdf',
-            content=self.pdf_bytes,
-            content_type='application/pdf'
+            name="new.pdf", content=self.pdf_bytes, content_type="application/pdf"
         )
-        response = self.client.post('/api/upload/', {
-            'files': [pdf_file],
-            'compress_level': 'none',
-            'should_split': 'true',
-            'max_size_mb': '1.0'
-        })
+        response = self.client.post(
+            "/api/upload/",
+            {
+                "files": [pdf_file],
+                "compress_level": "none",
+                "should_split": "true",
+                "max_size_mb": "1.0",
+            },
+        )
 
         self.assertEqual(response.status_code, 400)
-        self.assertIn('uso acumulado', response.json()['error'])
+        self.assertIn("uso acumulado", response.json()["error"])
 
 
 @override_settings(MEDIA_ROOT=TEMP_MEDIA_ROOT)
@@ -361,19 +347,19 @@ class PDFCeleryTasksTestCase(TestCase):
 
     def setUp(self):
         self.pdf_bytes = create_dummy_pdf(num_pages=4)
-        
-        self.session_key = 'test_celery_session_key'
+
+        self.session_key = "test_celery_session_key"
         self.job = SplitJob.objects.create(
             session_key=self.session_key,
-            original_filenames=['test.pdf'],
+            original_filenames=["test.pdf"],
             compress_level=SplitJob.CompressLevel.NONE,
             should_split=True,
             max_size_mb=0.0001,  # Limite extremamente baixo (~100 bytes) para forçar o split individual de cada página
         )
-        
+
         input_dir = self.job.input_dir
         input_dir.mkdir(parents=True, exist_ok=True)
-        self.input_pdf_path = input_dir / 'test.pdf'
+        self.input_pdf_path = input_dir / "test.pdf"
         self.input_pdf_path.write_bytes(self.pdf_bytes)
 
     def tearDown(self):
@@ -382,9 +368,9 @@ class PDFCeleryTasksTestCase(TestCase):
 
     def test_task_process_split_job_happy_path(self):
         """Valida que a execução síncrona da task processa, divide, cria o ZIP e limpa input."""
-        stale_output = self.job.output_dir / 'stale.pdf'
+        stale_output = self.job.output_dir / "stale.pdf"
         stale_output.parent.mkdir(parents=True, exist_ok=True)
-        stale_output.write_bytes(b'%PDF-stale')
+        stale_output.write_bytes(b"%PDF-stale")
 
         result = process_split_job.apply(args=[self.job.pk])
         self.assertTrue(result.successful())
@@ -395,8 +381,15 @@ class PDFCeleryTasksTestCase(TestCase):
         self.assertEqual(self.job.total_output_files, 4)  # 4 páginas -> 4 PDFs divididos
         self.assertIsNotNone(self.job.total_output_size_mb)
         self.assertTrue(self.job.total_output_size_mb >= 0)
-        
-        zip_path = os.path.join(TEMP_MEDIA_ROOT, 'sessions', self.session_key, 'output', str(self.job.pk), 'resultado.zip')
+
+        zip_path = os.path.join(
+            TEMP_MEDIA_ROOT,
+            "sessions",
+            self.session_key,
+            "output",
+            str(self.job.pk),
+            "resultado.zip",
+        )
         self.assertTrue(os.path.exists(zip_path))
         self.assertFalse(self.job.input_dir.exists())
         self.assertFalse(stale_output.exists())
@@ -404,55 +397,55 @@ class PDFCeleryTasksTestCase(TestCase):
     def test_task_cleanup_expired_sessions(self):
         """Valida que a task periódica remove arquivos com mais de 1 hora de vida do disco."""
         job_to_clean = SplitJob.objects.create(
-            session_key='session_to_clean',
-            original_filenames=['old.pdf'],
+            session_key="session_to_clean",
+            original_filenames=["old.pdf"],
             compress_level=SplitJob.CompressLevel.NONE,
             should_split=True,
             max_size_mb=10.0,
             status=SplitJob.Status.COMPLETED,
-            cleaned_up=False
+            cleaned_up=False,
         )
-        
+
         output_dir = job_to_clean.output_dir
         output_dir.mkdir(parents=True, exist_ok=True)
-        fake_zip = output_dir / 'resultado.zip'
-        fake_zip.write_bytes(b'fake zip bytes')
-        
+        fake_zip = output_dir / "resultado.zip"
+        fake_zip.write_bytes(b"fake zip bytes")
+
         two_hours_ago = timezone.now() - timezone.timedelta(hours=2)
         SplitJob.objects.filter(pk=job_to_clean.pk).update(created_at=two_hours_ago)
 
         cleanup_expired_sessions.apply()
-        
+
         job_to_clean.refresh_from_db()
         self.assertTrue(job_to_clean.cleaned_up)
-        
+
         self.assertFalse(fake_zip.exists())
         self.assertFalse(output_dir.exists())
 
-    @patch('subprocess.run')
+    @patch("subprocess.run")
     def test_task_process_split_single_pdf_output_no_zip(self, mock_run):
         """Valida que se o processamento gerar apenas 1 PDF de saída, não cria o ZIP e salva o PDF direto."""
         mock_run.return_value = MagicMock(returncode=0)
 
         # Configura o job para não dividir (apenas compressão) para garantir 1 único arquivo resultante
         single_job = SplitJob.objects.create(
-            session_key='test_single_file_session',
-            original_filenames=['test_single.pdf'],
+            session_key="test_single_file_session",
+            original_filenames=["test_single.pdf"],
             compress_level=SplitJob.CompressLevel.MEDIUM,
-            should_split=False
+            should_split=False,
         )
 
         input_dir = single_job.input_dir
         input_dir.mkdir(parents=True, exist_ok=True)
-        pdf_path = input_dir / 'test_single.pdf'
+        pdf_path = input_dir / "test_single.pdf"
         pdf_path.write_bytes(self.pdf_bytes)
 
         # Mock Ghostscript output
         def fake_gs_effect(*args, **kwargs):
-            compressed_dir = input_dir / 'compressed'
+            compressed_dir = input_dir / "compressed"
             compressed_dir.mkdir(parents=True, exist_ok=True)
-            compressed_path = compressed_dir / 'compressed_test_single.pdf'
-            compressed_path.write_bytes(b'%PDF-fake-compressed')
+            compressed_path = compressed_dir / "compressed_test_single.pdf"
+            compressed_path.write_bytes(b"%PDF-fake-compressed")
             return mock_run.return_value
 
         mock_run.side_effect = fake_gs_effect
@@ -467,38 +460,38 @@ class PDFCeleryTasksTestCase(TestCase):
         # O caminho final de saída deve ser um PDF
         output_path = Path(single_job.output_zip_path)
         self.assertTrue(output_path.exists())
-        self.assertEqual(output_path.suffix, '.pdf')
-        self.assertIn('test_single_comprimido.pdf', output_path.name)
+        self.assertEqual(output_path.suffix, ".pdf")
+        self.assertIn("test_single_comprimido.pdf", output_path.name)
 
         # Não deve existir um arquivo resultado.zip nesse diretório
-        zip_path = output_path.parent / 'resultado.zip'
+        zip_path = output_path.parent / "resultado.zip"
         self.assertFalse(zip_path.exists())
 
-    @patch('subprocess.run')
+    @patch("subprocess.run")
     def test_task_process_split_resulting_in_one_part_nomenclature(self, mock_run):
         """Valida a nomenclatura correta quando o split resulta em apenas 1 arquivo."""
         mock_run.return_value = MagicMock(returncode=0)
 
         # Configura o job para dividir, mas com limite alto para resultar em apenas 1 parte
         single_part_job = SplitJob.objects.create(
-            session_key='test_single_part_session',
-            original_filenames=['doc_original.pdf'],
+            session_key="test_single_part_session",
+            original_filenames=["doc_original.pdf"],
             compress_level=SplitJob.CompressLevel.MEDIUM,
             should_split=True,
-            max_size_mb=100.0  # Limite alto
+            max_size_mb=100.0,  # Limite alto
         )
 
         input_dir = single_part_job.input_dir
         input_dir.mkdir(parents=True, exist_ok=True)
-        pdf_path = input_dir / 'doc_original.pdf'
+        pdf_path = input_dir / "doc_original.pdf"
         pdf_path.write_bytes(self.pdf_bytes)
         compressed_pdf_bytes = create_dummy_pdf(num_pages=1)
 
         # Mock Ghostscript output para a compressão inicial e para a compressão intermediária no splitter
         def fake_gs_effect(*args, **kwargs):
             # Encontra se é o de input ou se é o intermediário
-            out_arg = [arg for arg in args[0] if arg.startswith('-sOutputFile=')][0]
-            out_file = Path(out_arg.split('=')[1])
+            out_arg = [arg for arg in args[0] if arg.startswith("-sOutputFile=")][0]
+            out_file = Path(out_arg.split("=")[1])
             out_file.parent.mkdir(parents=True, exist_ok=True)
             out_file.write_bytes(compressed_pdf_bytes)  # Grava PDF válido menor que o original
             return mock_run.return_value
@@ -513,26 +506,26 @@ class PDFCeleryTasksTestCase(TestCase):
 
         output_path = Path(single_part_job.output_zip_path)
         self.assertTrue(output_path.exists())
-        self.assertEqual(output_path.name, 'doc_original_comprimido_dividido.pdf')
+        self.assertEqual(output_path.name, "doc_original_comprimido_dividido.pdf")
 
-    @patch('splitter.services.PDFSplitter')
+    @patch("splitter.services.PDFSplitter")
     def test_task_uses_decimal_mb_for_split_limit(self, mock_splitter_cls):
         """Valida que 2 MB de limite vira 2.000.000 bytes, não 2 MiB."""
         decimal_job = SplitJob.objects.create(
-            session_key='test_decimal_mb_session',
-            original_filenames=['decimal.pdf'],
+            session_key="test_decimal_mb_session",
+            original_filenames=["decimal.pdf"],
             compress_level=SplitJob.CompressLevel.NONE,
             should_split=True,
-            max_size_mb=2.0
+            max_size_mb=2.0,
         )
 
         input_dir = decimal_job.input_dir
         input_dir.mkdir(parents=True, exist_ok=True)
-        pdf_path = input_dir / 'decimal.pdf'
+        pdf_path = input_dir / "decimal.pdf"
         pdf_path.write_bytes(self.pdf_bytes)
 
         def fake_split(input_path, output_dir, base_name=None):
-            output_path = Path(output_dir) / f'{base_name}_parte001.pdf'
+            output_path = Path(output_dir) / f"{base_name}_parte001.pdf"
             output_path.write_bytes(self.pdf_bytes)
             return [str(output_path)]
 
@@ -543,30 +536,29 @@ class PDFCeleryTasksTestCase(TestCase):
         self.assertTrue(result.successful())
 
         mock_splitter_cls.assert_called_once_with(
-            2_000_000,
-            compress_level=SplitJob.CompressLevel.NONE
+            2_000_000, compress_level=SplitJob.CompressLevel.NONE
         )
 
-    @patch('subprocess.run')
+    @patch("subprocess.run")
     def test_task_warns_when_compression_does_not_reduce_file(self, mock_run):
         """Se Ghostscript não reduzir o PDF, mantém original e avisa o usuário."""
         mock_run.return_value = MagicMock(returncode=0)
 
         no_reduction_job = SplitJob.objects.create(
-            session_key='test_no_reduction_session',
-            original_filenames=['same_size.pdf'],
+            session_key="test_no_reduction_session",
+            original_filenames=["same_size.pdf"],
             compress_level=SplitJob.CompressLevel.MEDIUM,
-            should_split=False
+            should_split=False,
         )
 
         input_dir = no_reduction_job.input_dir
         input_dir.mkdir(parents=True, exist_ok=True)
-        pdf_path = input_dir / 'same_size.pdf'
+        pdf_path = input_dir / "same_size.pdf"
         pdf_path.write_bytes(self.pdf_bytes)
 
         def fake_gs_effect(*args, **kwargs):
-            out_arg = [arg for arg in args[0] if arg.startswith('-sOutputFile=')][0]
-            out_file = Path(out_arg.split('=')[1])
+            out_arg = [arg for arg in args[0] if arg.startswith("-sOutputFile=")][0]
+            out_file = Path(out_arg.split("=")[1])
             out_file.parent.mkdir(parents=True, exist_ok=True)
             out_file.write_bytes(self.pdf_bytes)
             return mock_run.return_value
@@ -579,38 +571,37 @@ class PDFCeleryTasksTestCase(TestCase):
         no_reduction_job.refresh_from_db()
         self.assertEqual(no_reduction_job.status, SplitJob.Status.COMPLETED)
         self.assertTrue(no_reduction_job.processing_warnings)
-        self.assertIn('Não foi possível reduzir', no_reduction_job.processing_warnings[0])
-        self.assertEqual(Path(no_reduction_job.output_zip_path).name, 'same_size.pdf')
+        self.assertIn("Não foi possível reduzir", no_reduction_job.processing_warnings[0])
+        self.assertEqual(Path(no_reduction_job.output_zip_path).name, "same_size.pdf")
 
-    @patch('subprocess.run')
+    @patch("subprocess.run")
     def test_download_single_pdf_view(self, mock_run):
         """Valida que o download de um job com 1 arquivo único serve um PDF e não um ZIP."""
         mock_run.return_value = MagicMock(returncode=0)
-        
+
         session = self.client.session
         session.save()
         session_key = session.session_key
 
         # Cria um PDF fake de saída
-        out_dir = Path(TEMP_MEDIA_ROOT) / 'sessions' / session_key / 'output' / '999'
+        out_dir = Path(TEMP_MEDIA_ROOT) / "sessions" / session_key / "output" / "999"
         out_dir.mkdir(parents=True, exist_ok=True)
-        pdf_file = out_dir / 'doc_comprimido.pdf'
-        pdf_file.write_bytes(b'%PDF-fake-out')
+        pdf_file = out_dir / "doc_comprimido.pdf"
+        pdf_file.write_bytes(b"%PDF-fake-out")
 
         job = SplitJob.objects.create(
             session_key=session_key,
-            original_filenames=['doc.pdf'],
+            original_filenames=["doc.pdf"],
             compress_level=SplitJob.CompressLevel.MEDIUM,
             should_split=False,
             status=SplitJob.Status.COMPLETED,
             output_zip_path=str(pdf_file),
-            total_output_files=1
+            total_output_files=1,
         )
 
-        response = self.client.get(f'/api/download/{job.pk}/')
+        response = self.client.get(f"/api/download/{job.pk}/")
         self.assertEqual(response.status_code, 200)
-        self.assertEqual(response['Content-Type'], 'application/pdf')
+        self.assertEqual(response["Content-Type"], "application/pdf")
         self.assertEqual(
-            response['Content-Disposition'],
-            'attachment; filename="doc_comprimido.pdf"'
+            response["Content-Disposition"], 'attachment; filename="doc_comprimido.pdf"'
         )

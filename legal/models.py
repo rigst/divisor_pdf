@@ -111,9 +111,9 @@ class DocumentoLegal(models.Model):
         é isso que garante que o texto exibido hoje é byte a byte o que foi aceito.
         """
         agora = timezone.now()
-        DocumentoLegal.objects.filter(
-            tipo=self.tipo, status=StatusDocumento.PUBLICADO
-        ).exclude(pk=self.pk).update(status=StatusDocumento.ARQUIVADO, atualizado_em=agora)
+        DocumentoLegal.objects.filter(tipo=self.tipo, status=StatusDocumento.PUBLICADO).exclude(
+            pk=self.pk
+        ).update(status=StatusDocumento.ARQUIVADO, atualizado_em=agora)
 
         self.corpo_html = renderizar_markdown(self.corpo_md)
         self.sha256 = calcular_sha256(self.corpo_md)

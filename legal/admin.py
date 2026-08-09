@@ -64,7 +64,15 @@ class DocumentoLegalAdmin(ModelAdmin):
     def get_readonly_fields(self, request, obj=None):
         campos = list(super().get_readonly_fields(request, obj))
         if obj is not None and obj.status != StatusDocumento.RASCUNHO:
-            campos += ["tipo", "versao", "titulo", "status", "material", "corpo_md", "vigente_desde"]
+            campos += [
+                "tipo",
+                "versao",
+                "titulo",
+                "status",
+                "material",
+                "corpo_md",
+                "vigente_desde",
+            ]
         return tuple(dict.fromkeys(campos))
 
     # -- Publicação --------------------------------------------------------
@@ -109,7 +117,15 @@ class DocumentoLegalAdmin(ModelAdmin):
 class AceiteLegalAdmin(ModelAdmin):
     """Somente leitura: este modelo é prova, não cadastro."""
 
-    list_display = ("aceito_em", "usuario_label", "documento", "origem", "ip", "e_visitante", "integridade")
+    list_display = (
+        "aceito_em",
+        "usuario_label",
+        "documento",
+        "origem",
+        "ip",
+        "e_visitante",
+        "integridade",
+    )
     list_filter = ("origem", "e_visitante", "documento__tipo", "documento__versao", "aceito_em")
     search_fields = ("usuario_label", "ip", "session_key", "documento_sha256")
     date_hierarchy = "aceito_em"
@@ -133,24 +149,37 @@ class AceiteLegalAdmin(ModelAdmin):
         resposta = HttpResponse(content_type="text/csv; charset=utf-8")
         resposta["Content-Disposition"] = 'attachment; filename="aceites.csv"'
         escritor = csv.writer(resposta)
-        escritor.writerow([
-            "aceito_em", "usuario", "e_visitante", "documento", "versao",
-            "sha256_aceito", "sha256_atual", "integro", "origem", "ip",
-            "session_key", "user_agent",
-        ])
+        escritor.writerow(
+            [
+                "aceito_em",
+                "usuario",
+                "e_visitante",
+                "documento",
+                "versao",
+                "sha256_aceito",
+                "sha256_atual",
+                "integro",
+                "origem",
+                "ip",
+                "session_key",
+                "user_agent",
+            ]
+        )
         for aceite in queryset.select_related("documento"):
-            escritor.writerow([
-                aceite.aceito_em.isoformat(),
-                aceite.usuario_label,
-                "sim" if aceite.e_visitante else "não",
-                aceite.documento.get_tipo_display(),
-                aceite.documento.versao,
-                aceite.documento_sha256,
-                aceite.documento.sha256,
-                "sim" if aceite.integro else "NÃO",
-                aceite.get_origem_display(),
-                aceite.ip or "",
-                aceite.session_key,
-                aceite.user_agent,
-            ])
+            escritor.writerow(
+                [
+                    aceite.aceito_em.isoformat(),
+                    aceite.usuario_label,
+                    "sim" if aceite.e_visitante else "não",
+                    aceite.documento.get_tipo_display(),
+                    aceite.documento.versao,
+                    aceite.documento_sha256,
+                    aceite.documento.sha256,
+                    "sim" if aceite.integro else "NÃO",
+                    aceite.get_origem_display(),
+                    aceite.ip or "",
+                    aceite.session_key,
+                    aceite.user_agent,
+                ]
+            )
         return resposta

@@ -29,19 +29,19 @@ def process_split_job(self, job_id: int):
     6. Remove os PDFs temporários de entrada e intermediários
     """
     from .models import SplitJob
-    from .services import PDFSplitter, PDFCompressor
+    from .services import PDFCompressor, PDFSplitter
 
     try:
         job = SplitJob.objects.get(pk=job_id)
     except SplitJob.DoesNotExist:
-        logger.error(f'SplitJob #{job_id} não encontrado.')
+        logger.error(f"SplitJob #{job_id} não encontrado.")
         return
 
     # Marca como processando
     job.status = SplitJob.Status.PROCESSING
-    task_id = self.request.id or job.task_id or f'eager-{job_id}'
+    task_id = self.request.id or job.task_id or f"eager-{job_id}"
     job.task_id = task_id
-    job.save(update_fields=['status', 'task_id'])
+    job.save(update_fields=["status", "task_id"])
 
     processing_warnings = []
 
@@ -52,11 +52,11 @@ def process_split_job(self, job_id: int):
             shutil.rmtree(str(output_dir))
         output_dir.mkdir(parents=True, exist_ok=True)
 
-        input_files = sorted(input_dir.glob('*.pdf'))
+        input_files = sorted(input_dir.glob("*.pdf"))
         total_files = len(input_files)
 
         if total_files == 0:
-            raise ValueError('Nenhum arquivo PDF encontrado para processamento.')
+            raise ValueError("Nenhum arquivo PDF encontrado para processamento.")
 
         all_output_files = []
 
@@ -74,21 +74,21 @@ def process_split_job(self, job_id: int):
             nonlocal completed_steps
             completed_steps += 1
             job.progress = int((completed_steps / total_steps) * 90)
-            job.save(update_fields=['progress'])
+            job.save(update_fields=["progress"])
 
         for idx, pdf_path in enumerate(input_files):
             current_target_pdf = pdf_path
             compression_applied = False
-            
+
             # 1. Compressão opcional via Ghostscript
             if use_compression:
-                logger.info(f'[{idx + 1}/{total_files}] Comprimindo: {pdf_path.name}')
-                
+                logger.info(f"[{idx + 1}/{total_files}] Comprimindo: {pdf_path.name}")
+
                 # Criar pasta temporária para arquivos comprimidos
-                compressed_dir = input_dir / 'compressed'
+                compressed_dir = input_dir / "compressed"
                 compressed_dir.mkdir(parents=True, exist_ok=True)
-                compressed_path = compressed_dir / f'compressed_{pdf_path.name}'
-                
+                compressed_path = compressed_dir / f"compressed_{pdf_path.name}"
+
                 compressor = PDFCompressor(job.compress_level)
                 try:
                     compressor.compress(str(pdf_path), str(compressed_path))
@@ -101,55 +101,57 @@ def process_split_job(self, job_id: int):
                     else:
                         processing_warnings.append(
                             f'Não foi possível reduzir "{pdf_path.name}" com o nível de compressão selecionado. '
-                            'O arquivo original foi mantido.'
+                            "O arquivo original foi mantido."
                         )
                         current_target_pdf = pdf_path
                 except Exception as exc:
                     processing_warnings.append(
                         f'Não foi possível comprimir "{pdf_path.name}". '
-                        'O arquivo original foi mantido para continuar o processamento.'
+                        "O arquivo original foi mantido para continuar o processamento."
                     )
-                    logger.warning(f'Compressão ignorada para {pdf_path.name}: {exc}')
+                    logger.warning(f"Compressão ignorada para {pdf_path.name}: {exc}")
                     current_target_pdf = pdf_path
 
                 _advance_progress()
 
             # 2. Divisão opcional via pypdf
             if job.should_split:
-                logger.info(f'[{idx + 1}/{total_files}] Dividindo: {current_target_pdf.name}')
-                
+                logger.info(f"[{idx + 1}/{total_files}] Dividindo: {current_target_pdf.name}")
+
                 max_size_bytes = int(job.max_size_mb * settings.PDF_SPLIT_BYTES_PER_MB)
                 splitter_compress_level = (
                     SplitJob.CompressLevel.NONE if use_compression else job.compress_level
                 )
                 splitter = PDFSplitter(max_size_bytes, compress_level=splitter_compress_level)
-                
+
                 # O splitter grava os arquivos diretamente na pasta de output
                 temp_output_files = splitter.split(
                     input_path=str(current_target_pdf),
                     output_dir=str(output_dir),
-                    base_name=pdf_path.stem  # Mantém o nome amigável do arquivo original
+                    base_name=pdf_path.stem,  # Mantém o nome amigável do arquivo original
                 )
                 processing_warnings.extend(
-                    f'{pdf_path.name}: {warning}' for warning in splitter.warnings
+                    f"{pdf_path.name}: {warning}" for warning in splitter.warnings
                 )
-                
+
                 # Nomenclatura dinâmica
                 final_split_files = []
                 if len(temp_output_files) == 1:
                     old_path = Path(temp_output_files[0])
-                    suffix = '_comprimido_dividido' if compression_applied else '_dividido'
-                    new_path = old_path.parent / f'{pdf_path.stem}{suffix}.pdf'
+                    suffix = "_comprimido_dividido" if compression_applied else "_dividido"
+                    new_path = old_path.parent / f"{pdf_path.stem}{suffix}.pdf"
                     old_path.rename(new_path)
                     final_split_files.append(str(new_path))
                 else:
                     for p_idx, file_str in enumerate(temp_output_files):
                         old_path = Path(file_str)
-                        prefix = '_comprimido' if compression_applied else ''
-                        new_path = old_path.parent / f'{pdf_path.stem}{prefix}_parte{p_idx + 1:03d}.pdf'
+                        prefix = "_comprimido" if compression_applied else ""
+                        new_path = (
+                            old_path.parent / f"{pdf_path.stem}{prefix}_parte{p_idx + 1:03d}.pdf"
+                        )
                         old_path.rename(new_path)
                         final_split_files.append(str(new_path))
-                
+
                 all_output_files.extend(final_split_files)
 
                 for output_file in final_split_files:
@@ -157,26 +159,26 @@ def process_split_job(self, job_id: int):
                     if output_path.stat().st_size > max_size_bytes:
                         warning = (
                             f'"{output_path.name}" ficou com '
-                            f'{output_path.stat().st_size / settings.PDF_SPLIT_BYTES_PER_MB:.2f} MB, '
-                            f'acima do limite de {max_size_bytes / settings.PDF_SPLIT_BYTES_PER_MB:.2f} MB. '
-                            'Isso pode ocorrer quando uma única página excede o limite.'
+                            f"{output_path.stat().st_size / settings.PDF_SPLIT_BYTES_PER_MB:.2f} MB, "
+                            f"acima do limite de {max_size_bytes / settings.PDF_SPLIT_BYTES_PER_MB:.2f} MB. "
+                            "Isso pode ocorrer quando uma única página excede o limite."
                         )
                         if warning not in processing_warnings:
                             processing_warnings.append(warning)
                         logger.warning(
-                            'Arquivo gerado acima do limite solicitado: %s (%.2f MB > %.2f MB). '
-                            'Isso pode ocorrer quando uma unica pagina excede o limite.',
+                            "Arquivo gerado acima do limite solicitado: %s (%.2f MB > %.2f MB). "
+                            "Isso pode ocorrer quando uma unica pagina excede o limite.",
                             output_path.name,
                             output_path.stat().st_size / settings.PDF_SPLIT_BYTES_PER_MB,
                             max_size_bytes / settings.PDF_SPLIT_BYTES_PER_MB,
                         )
-                
+
                 _advance_progress()
             else:
                 # Caso não divida, o próprio arquivo (comprimido ou original) é enviado para a saída
                 # Copiar para a pasta de saída com sufixo amigável
-                suffix = '_comprimido' if compression_applied else ''
-                dest_name = f'{pdf_path.stem}{suffix}.pdf'
+                suffix = "_comprimido" if compression_applied else ""
+                dest_name = f"{pdf_path.stem}{suffix}.pdf"
                 dest_path = output_dir / dest_name
                 shutil.copy2(str(current_target_pdf), str(dest_path))
                 all_output_files.append(str(dest_path))
@@ -186,7 +188,9 @@ def process_split_job(self, job_id: int):
         # 3. Criação do arquivo ZIP final ou entrega direta se for arquivo único
         if len(all_output_files) == 1:
             final_file_path = Path(all_output_files[0])
-            logger.info(f'Apenas 1 arquivo gerado: {final_file_path.name}. Disponibilizando diretamente.')
+            logger.info(
+                f"Apenas 1 arquivo gerado: {final_file_path.name}. Disponibilizando diretamente."
+            )
 
             # Remove todo o diretório temporário de entrada (com originais e comprimidos)
             if input_dir.exists():
@@ -203,21 +207,27 @@ def process_split_job(self, job_id: int):
             job.output_zip_path = str(final_file_path)
             job.completed_at = timezone.now()
             job.processing_warnings = processing_warnings
-            job.save(update_fields=[
-                'status', 'progress', 'total_output_files',
-                'total_output_size_mb', 'output_zip_path', 'completed_at',
-                'processing_warnings'
-            ])
+            job.save(
+                update_fields=[
+                    "status",
+                    "progress",
+                    "total_output_files",
+                    "total_output_size_mb",
+                    "output_zip_path",
+                    "completed_at",
+                    "processing_warnings",
+                ]
+            )
 
             logger.info(
-                f'SplitJob #{job_id} concluído com sucesso (arquivo único). '
-                f'Tamanho final {file_size_mb} MB'
+                f"SplitJob #{job_id} concluído com sucesso (arquivo único). "
+                f"Tamanho final {file_size_mb} MB"
             )
         else:
-            zip_path = output_dir / 'resultado.zip'
-            logger.info(f'Criando ZIP final contendo {len(all_output_files)} arquivo(s)...')
+            zip_path = output_dir / "resultado.zip"
+            logger.info(f"Criando ZIP final contendo {len(all_output_files)} arquivo(s)...")
 
-            with zipfile.ZipFile(str(zip_path), 'w', zipfile.ZIP_DEFLATED) as zf:
+            with zipfile.ZipFile(str(zip_path), "w", zipfile.ZIP_DEFLATED) as zf:
                 for file_path in all_output_files:
                     file_path = Path(file_path)
                     zf.write(str(file_path), file_path.name)
@@ -241,36 +251,42 @@ def process_split_job(self, job_id: int):
             job.output_zip_path = str(zip_path)
             job.completed_at = timezone.now()
             job.processing_warnings = processing_warnings
-            job.save(update_fields=[
-                'status', 'progress', 'total_output_files',
-                'total_output_size_mb', 'output_zip_path', 'completed_at',
-                'processing_warnings'
-            ])
+            job.save(
+                update_fields=[
+                    "status",
+                    "progress",
+                    "total_output_files",
+                    "total_output_size_mb",
+                    "output_zip_path",
+                    "completed_at",
+                    "processing_warnings",
+                ]
+            )
 
             logger.info(
-                f'SplitJob #{job_id} concluído com sucesso. '
-                f'{len(all_output_files)} arquivo(s), tamanho final {zip_size_mb} MB'
+                f"SplitJob #{job_id} concluído com sucesso. "
+                f"{len(all_output_files)} arquivo(s), tamanho final {zip_size_mb} MB"
             )
 
     except Exception as exc:
-        logger.exception(f'Erro fatal ao processar SplitJob #{job_id}')
+        logger.exception(f"Erro fatal ao processar SplitJob #{job_id}")
         job.processing_warnings = processing_warnings
 
         # Em modo eager, não tenta retry (que dependeria de backend de resultados)
-        if getattr(settings, 'CELERY_TASK_ALWAYS_EAGER', False):
+        if getattr(settings, "CELERY_TASK_ALWAYS_EAGER", False):
             job.status = SplitJob.Status.FAILED
             job.error_message = str(exc)
-            job.save(update_fields=['status', 'error_message', 'processing_warnings'])
+            job.save(update_fields=["status", "error_message", "processing_warnings"])
             return  # Job já marcado como FAILED, a view tratará o status
 
         if self.request.retries >= self.max_retries:
             job.status = SplitJob.Status.FAILED
             job.error_message = str(exc)
-            job.save(update_fields=['status', 'error_message', 'processing_warnings'])
+            job.save(update_fields=["status", "error_message", "processing_warnings"])
         else:
             job.status = SplitJob.Status.PROCESSING
-            job.error_message = ''
-            job.save(update_fields=['status', 'error_message', 'processing_warnings'])
+            job.error_message = ""
+            job.save(update_fields=["status", "error_message", "processing_warnings"])
 
         # Em produção, permite retrying via Celery
         raise self.retry(exc=exc, countdown=30)
@@ -286,14 +302,13 @@ def cleanup_expired_sessions():
     """
     from .models import SplitJob
 
-    retention = getattr(settings, 'FILE_RETENTION_SECONDS', 3600)
+    retention = getattr(settings, "FILE_RETENTION_SECONDS", 3600)
     cutoff = timezone.now() - timedelta(seconds=retention)
 
     # Busca jobs concluídos ou falhados que passaram do tempo de retenção
-    expired_jobs = SplitJob.objects.filter(
-        created_at__lt=cutoff,
-        cleaned_up=False
-    ).exclude(status=SplitJob.Status.PROCESSING)
+    expired_jobs = SplitJob.objects.filter(created_at__lt=cutoff, cleaned_up=False).exclude(
+        status=SplitJob.Status.PROCESSING
+    )
 
     cleaned_count = 0
     for job in expired_jobs:
@@ -301,7 +316,7 @@ def cleanup_expired_sessions():
             # Remove o diretório de output
             if job.output_dir.exists():
                 shutil.rmtree(str(job.output_dir))
-                logger.info(f'Removido output de SplitJob #{job.pk}')
+                logger.info(f"Removido output de SplitJob #{job.pk}")
 
             # Remove o diretório de input (caso ainda exista)
             if job.input_dir.exists():
@@ -312,21 +327,21 @@ def cleanup_expired_sessions():
             if session_dir.exists():
                 # Verifica se há outros jobs usando o mesmo diretório
                 try:
-                    remaining = list(session_dir.rglob('*'))
+                    remaining = list(session_dir.rglob("*"))
                     if not any(f.is_file() for f in remaining):
                         shutil.rmtree(str(session_dir))
                 except Exception:
                     pass
 
             job.cleaned_up = True
-            job.save(update_fields=['cleaned_up'])
+            job.save(update_fields=["cleaned_up"])
             cleaned_count += 1
 
         except Exception:
-            logger.exception(f'Erro ao limpar SplitJob #{job.pk}')
+            logger.exception(f"Erro ao limpar SplitJob #{job.pk}")
 
     if cleaned_count > 0:
-        logger.info(f'Limpeza: {cleaned_count} job(s) removido(s)')
+        logger.info(f"Limpeza: {cleaned_count} job(s) removido(s)")
 
     _cleanup_orphaned_temp_uploads(retention)
 
@@ -338,7 +353,7 @@ def _cleanup_orphaned_temp_uploads(retention_seconds: int):
     O Django apaga esses arquivos quando o request termina, mas uploads
     interrompidos (conexão caída) deixam temporários que nunca são limpos.
     """
-    temp_dir = getattr(settings, 'FILE_UPLOAD_TEMP_DIR', None)
+    temp_dir = getattr(settings, "FILE_UPLOAD_TEMP_DIR", None)
     if not temp_dir:
         return
 
@@ -354,7 +369,7 @@ def _cleanup_orphaned_temp_uploads(retention_seconds: int):
                 entry.unlink(missing_ok=True)
                 removed += 1
         except Exception:
-            logger.exception(f'Erro ao remover upload temporário órfão: {entry}')
+            logger.exception(f"Erro ao remover upload temporário órfão: {entry}")
 
     if removed > 0:
-        logger.info(f'Limpeza: {removed} upload(s) temporário(s) órfão(s) removido(s)')
+        logger.info(f"Limpeza: {removed} upload(s) temporário(s) órfão(s) removido(s)")
