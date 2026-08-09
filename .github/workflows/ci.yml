@@ -39,6 +39,7 @@ jobs:
         # media/tmp não vem no repositório.
         FILE_UPLOAD_TEMP_DIR=/tmp
 
-      # Primeira adoção: tudo reporta antes de bloquear. Retire da lista
-      # conforme cada etapa zerar.
-      soft-fail: "ruff,mypy,pytest,bandit,pip-audit"
+      # pytest, bandit e pip-audit saíram do soft-fail: já estão limpos.
+      # Restam 14 achados de ruff que exigem decisão caso a caso (B904, DJ012,
+      # E741 e afins) e o mypy, com o código ainda sem anotação de tipo.
+      soft-fail: "ruff,mypy"
