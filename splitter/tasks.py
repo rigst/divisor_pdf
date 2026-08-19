@@ -118,6 +118,13 @@ def process_split_job(self, job_id: int):
             if job.should_split:
                 logger.info(f"[{idx + 1}/{total_files}] Dividindo: {current_target_pdf.name}")
 
+                # `max_size_mb` é anulável no modelo e obrigatório quando
+                # `should_split` está ligado — invariante que só a view impõe.
+                # Um job criado pelo admin ou pelo shell chega aqui com None e
+                # morre em `TypeError: unsupported operand type(s) for *`, que
+                # não diz nada sobre o que faltou preencher.
+                if job.max_size_mb is None:
+                    raise ValueError("Job marcado para dividir sem max_size_mb definido.")
                 max_size_bytes = int(job.max_size_mb * settings.PDF_SPLIT_BYTES_PER_MB)
                 splitter_compress_level = (
                     SplitJob.CompressLevel.NONE if use_compression else job.compress_level
@@ -229,8 +236,8 @@ def process_split_job(self, job_id: int):
 
             with zipfile.ZipFile(str(zip_path), "w", zipfile.ZIP_DEFLATED) as zf:
                 for file_path in all_output_files:
-                    file_path = Path(file_path)
-                    zf.write(str(file_path), file_path.name)
+                    caminho = Path(file_path)
+                    zf.write(str(caminho), caminho.name)
 
             # Remove os PDFs individuais gerados de output para liberar espaço, mantendo só o ZIP
             for file_path in all_output_files:
@@ -289,7 +296,7 @@ def process_split_job(self, job_id: int):
             job.save(update_fields=["status", "error_message", "processing_warnings"])
 
         # Em produção, permite retrying via Celery
-        raise self.retry(exc=exc, countdown=30)
+        raise self.retry(exc=exc, countdown=30) from exc
 
 
 @shared_task

@@ -17,7 +17,7 @@ from django.http import (
 from django.shortcuts import render
 from django.utils.text import get_valid_filename
 from django.views.decorators.csrf import csrf_protect
-from django.views.decorators.http import require_GET, require_POST
+from django.views.decorators.http import require_GET, require_POST, require_safe
 
 logger = logging.getLogger(__name__)
 
@@ -42,6 +42,7 @@ def _safe_pdf_filename(filename: str, used_names: set[str]) -> str:
     return candidate
 
 
+@require_safe
 def index(request):
     """Renderiza a página principal do aplicativo."""
     from legal.forms import AceiteForm
@@ -144,7 +145,7 @@ def upload(request):
     total_size = 0
     filenames = []
     upload_files = []
-    used_filenames = set()
+    used_filenames: set[str] = set()
     for f in files:
         # Verificar extensão
         if not f.name.lower().endswith(".pdf"):

@@ -25,7 +25,7 @@ def create_dummy_pdf(num_pages=3):
     Retorna os bytes do PDF.
     """
     writer = PdfWriter()
-    for i in range(num_pages):
+    for _ in range(num_pages):
         # Adiciona uma página vazia
         writer.add_blank_page(width=612, height=792)  # Tamanho Carta padrão
 
@@ -490,7 +490,7 @@ class PDFCeleryTasksTestCase(TestCase):
         # Mock Ghostscript output para a compressão inicial e para a compressão intermediária no splitter
         def fake_gs_effect(*args, **kwargs):
             # Encontra se é o de input ou se é o intermediário
-            out_arg = [arg for arg in args[0] if arg.startswith("-sOutputFile=")][0]
+            out_arg = next(arg for arg in args[0] if arg.startswith("-sOutputFile="))
             out_file = Path(out_arg.split("=")[1])
             out_file.parent.mkdir(parents=True, exist_ok=True)
             out_file.write_bytes(compressed_pdf_bytes)  # Grava PDF válido menor que o original
@@ -557,7 +557,7 @@ class PDFCeleryTasksTestCase(TestCase):
         pdf_path.write_bytes(self.pdf_bytes)
 
         def fake_gs_effect(*args, **kwargs):
-            out_arg = [arg for arg in args[0] if arg.startswith("-sOutputFile=")][0]
+            out_arg = next(arg for arg in args[0] if arg.startswith("-sOutputFile="))
             out_file = Path(out_arg.split("=")[1])
             out_file.parent.mkdir(parents=True, exist_ok=True)
             out_file.write_bytes(self.pdf_bytes)

@@ -5,10 +5,17 @@ recusa acontecer no servidor, e `initial=False` garante que ele nunca chegue
 pré-marcado. Nenhum template deve escrever `checked` por conta própria.
 """
 
+from typing import TYPE_CHECKING
+
 from django import forms
 from django.urls import reverse
 from django.utils.functional import lazy
 from django.utils.html import format_html
+
+if TYPE_CHECKING:
+    FormBase = forms.BaseForm
+else:
+    FormBase = object
 
 
 def _rotulo_aceite():
@@ -39,7 +46,7 @@ class AceiteLegalField(forms.BooleanField):
         super().__init__(**kwargs)
 
 
-class AceiteLegalMixin:
+class AceiteLegalMixin(FormBase):
     """Acrescenta o checkbox de aceite a qualquer Form ou ModelForm.
 
     O campo entra em `__init__`, e não como atributo de classe: campos declarativos
