@@ -52,7 +52,7 @@ def process_split_job(self, job_id: int):
             shutil.rmtree(str(output_dir))
         output_dir.mkdir(parents=True, exist_ok=True)
 
-        input_files = sorted(input_dir.glob("*.pdf"))
+        input_files = sorted(f for f in input_dir.iterdir() if f.suffix.lower() == ".pdf")
         total_files = len(input_files)
 
         if total_files == 0:
