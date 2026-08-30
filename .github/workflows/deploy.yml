@@ -1,0 +1,16 @@
+name: CD
+
+# TEMPORÁRIO: workflow_dispatch em vez de workflow_run, para testar de ponta
+# a ponta antes de confiar no gatilho automático (ver RUNBOOK.md do rigst/ci,
+# seção 7.5).
+
+on:
+  workflow_dispatch:
+
+jobs:
+  deploy:
+    uses: rigst/ci/.github/workflows/deploy-django.yml@8b542610a2db80a4f0972c5ec14ed5cbc52118e9  # v1
+    secrets:
+      CD_SSH_KEY: ${{ secrets.CD_SSH_KEY }}
+    with:
+      ssh-host: "divisor.stolben.com"
