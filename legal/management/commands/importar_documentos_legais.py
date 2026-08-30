@@ -5,6 +5,8 @@ Nunca sobrescreve uma versão já existente: se o arquivo mudou, é preciso cria
 versão nova — é o que impede alterar retroativamente um texto já aceito.
 """
 
+from datetime import datetime
+
 from django.core.management.base import BaseCommand
 from django.db import transaction
 from django.utils import timezone
@@ -66,7 +68,7 @@ class Command(BaseCommand):
             data = parse_date(metadados.get("vigente_desde", "") or "")
             if data:
                 documento.vigente_desde = timezone.make_aware(
-                    timezone.datetime.combine(data, timezone.datetime.min.time())
+                    datetime.combine(data, datetime.min.time())
                 )
             documento.save()
             criados += 1
