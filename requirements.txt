@@ -9,7 +9,7 @@ django-redis>=5.4,<7.0
 
 # Conformidade legal (app `legal`): render e sanitização das políticas.
 markdown>=3.5,<4.0
-nh3>=0.2,<1.0
+nh3>=0.3.7,<1.0
 
 # Tema do admin.
 django-unfold>=0.101,<1.0
