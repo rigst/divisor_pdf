@@ -118,6 +118,12 @@ def process_split_job(self, job_id: int):
             if job.should_split:
                 logger.info(f"[{idx + 1}/{total_files}] Dividindo: {current_target_pdf.name}")
 
+                if job.max_size_mb is None:
+                    # A view exige max_size_mb quando should_split=True; chegar aqui
+                    # sem ele indica um job criado fora desse fluxo (ex.: admin/shell).
+                    raise ValueError(
+                        f"SplitJob #{job_id} tem should_split=True mas max_size_mb vazio."
+                    )
                 max_size_bytes = int(job.max_size_mb * settings.PDF_SPLIT_BYTES_PER_MB)
                 splitter_compress_level = (
                     SplitJob.CompressLevel.NONE if use_compression else job.compress_level
@@ -229,8 +235,8 @@ def process_split_job(self, job_id: int):
 
             with zipfile.ZipFile(str(zip_path), "w", zipfile.ZIP_DEFLATED) as zf:
                 for file_path in all_output_files:
-                    file_path = Path(file_path)
-                    zf.write(str(file_path), file_path.name)
+                    file_path_obj = Path(file_path)
+                    zf.write(str(file_path_obj), file_path_obj.name)
 
             # Remove os PDFs individuais gerados de output para liberar espaço, mantendo só o ZIP
             for file_path in all_output_files:
