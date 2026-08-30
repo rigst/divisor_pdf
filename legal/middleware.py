@@ -33,9 +33,7 @@ class AceiteObrigatorioMiddleware:
         # Cada projeto acrescenta o que for próprio dele. No trilhas são as
         # rotas do PWA (/sw.js, /offline/): se o service worker levasse 302
         # para a tela de aceite, o navegador cacharia o redirecionamento.
-        self.prefixos = PREFIXOS_LIVRES + tuple(
-            getattr(settings, "LEGAL_ALLOWLIST_EXTRA", ())
-        )
+        self.prefixos = PREFIXOS_LIVRES + tuple(getattr(settings, "LEGAL_ALLOWLIST_EXTRA", ()))
 
     def __call__(self, request):
         usuario = getattr(request, "user", None)

@@ -7,6 +7,7 @@ respeitando o limite de tamanho máximo, utilizando a biblioteca pypdf (MIT).
 import io
 import logging
 from pathlib import Path
+from typing import ClassVar
 
 from django.conf import settings
 from pypdf import PdfReader, PdfWriter
@@ -32,7 +33,7 @@ class PDFSplitter:
         self.compress_level = compress_level
         self.warnings = []
 
-    def split(self, input_path: str, output_dir: str, base_name: str = None) -> list[str]:
+    def split(self, input_path: str, output_dir: str, base_name: str | None = None) -> list[str]:
         """
         Divide um PDF em partes menores.
 
@@ -63,7 +64,7 @@ class PDFSplitter:
             reader = PdfReader(str(input_path))
             total_pages = len(reader.pages)
         except Exception as e:
-            raise ValueError(f"Não foi possível abrir o PDF: {e}")
+            raise ValueError(f"Não foi possível abrir o PDF: {e}") from e
 
         if total_pages == 0:
             raise ValueError("O PDF não contém páginas.")
@@ -223,8 +224,7 @@ class PDFSplitter:
             try:
                 subprocess.run(
                     cmd,
-                    stdout=subprocess.PIPE,
-                    stderr=subprocess.PIPE,
+                    capture_output=True,
                     check=True,
                     timeout=settings.GHOSTSCRIPT_TIMEOUT_SECONDS,
                 )
@@ -246,7 +246,7 @@ class PDFCompressor:
     # 'low' -> Menor compressão, melhor qualidade (impressão) -> /printer
     # 'medium' -> Compressão equilibrada (leitura digital) -> /ebook
     # 'high' -> Máxima compressão, menor qualidade (tela) -> /screen
-    SETTINGS_MAP = {
+    SETTINGS_MAP: ClassVar[dict[str, str]] = {
         "low": "/printer",
         "medium": "/ebook",
         "high": "/screen",
@@ -303,10 +303,9 @@ class PDFCompressor:
         )
 
         try:
-            result = subprocess.run(
+            subprocess.run(
                 cmd,
-                stdout=subprocess.PIPE,
-                stderr=subprocess.PIPE,
+                capture_output=True,
                 text=True,
                 check=True,
                 timeout=settings.GHOSTSCRIPT_TIMEOUT_SECONDS,
@@ -330,7 +329,7 @@ class PDFCompressor:
         except subprocess.CalledProcessError as e:
             err_msg = e.stderr or e.stdout or "Erro desconhecido."
             logger.error(f"Falha no Ghostscript: {err_msg}")
-            raise RuntimeError(f"Falha na compressão do PDF via Ghostscript: {err_msg}")
+            raise RuntimeError(f"Falha na compressão do PDF via Ghostscript: {err_msg}") from e
         except subprocess.TimeoutExpired as e:
             logger.error(
                 f"Ghostscript excedeu o timeout de {settings.GHOSTSCRIPT_TIMEOUT_SECONDS}s"
@@ -340,4 +339,4 @@ class PDFCompressor:
             ) from e
         except Exception as e:
             logger.exception("Erro inesperado durante a compressão.")
-            raise RuntimeError(f"Erro ao invocar o compressor de PDF: {e}")
+            raise RuntimeError(f"Erro ao invocar o compressor de PDF: {e}") from e
