@@ -90,6 +90,15 @@ sudo systemctl restart divisor_pdf
 sudo systemctl restart divisor_celery
 ```
 
+### Deploy contínuo
+
+Push em `main` que passar no CI é implantado sozinho em produção via
+`.github/workflows/deploy.yml` + `deploy/cd-deploy.sh` — o workflow
+reutilizável `deploy-django.yml` do `rigst/ci` dispara o script por SSH, com
+`reload` (não `restart`) no serviço web pra zero downtime. Procedimento
+completo, geração de chave e rollback manual: RUNBOOK.md do `rigst/ci`,
+seção 7.
+
 ## Conformidade legal (LGPD / Marco Civil)
 
 O app `legal` versiona os Termos de Uso e a Política de Privacidade e registra o aceite.
