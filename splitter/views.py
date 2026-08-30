@@ -144,7 +144,7 @@ def upload(request):
     total_size = 0
     filenames = []
     upload_files = []
-    used_filenames = set()
+    used_filenames: set[str] = set()
     for f in files:
         # Verificar extensão
         if not f.name.lower().endswith(".pdf"):

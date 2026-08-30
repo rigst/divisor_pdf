@@ -46,7 +46,7 @@ def escrever(tipo, versao, metadados, corpo):
 
 def listar():
     """-> [(tipo, versao, Path)] de todos os arquivos existentes."""
-    encontrados = []
+    encontrados: list[tuple[str, str, Path]] = []
     if not DIRETORIO.exists():
         return encontrados
     for pasta in sorted(p for p in DIRETORIO.iterdir() if p.is_dir()):
