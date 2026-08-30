@@ -64,7 +64,7 @@ X_FRAME_OPTIONS = "DENY"
 SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")
 
 # Static files
-STATIC_ROOT = os.getenv("STATIC_ROOT", str(BASE_DIR / "staticfiles"))
+STATIC_ROOT = Path(os.getenv("STATIC_ROOT", str(BASE_DIR / "staticfiles")))
 
 # Cache-busting: gera nomes com hash de conteúdo (ex.: style.<hash>.css) via
 # manifesto. Como o Nginx serve /static/ com `expires 30d`, sem isto os

@@ -31,9 +31,11 @@ class PDFSplitter:
             raise ValueError("O tamanho máximo deve ser maior que zero.")
         self.max_size_bytes = max_size_bytes
         self.compress_level = compress_level
-        self.warnings = []
+        self.warnings: list[str] = []
 
-    def split(self, input_path: str, output_dir: str, base_name: str | None = None) -> list[str]:
+    def split(
+        self, input_path: str | Path, output_dir: str | Path, base_name: str | None = None
+    ) -> list[str]:
         """
         Divide um PDF em partes menores.
 
@@ -262,7 +264,7 @@ class PDFCompressor:
         self.quality_level = quality_level
         self.gs_setting = self.SETTINGS_MAP[quality_level]
 
-    def compress(self, input_path: str, output_path: str) -> bool:
+    def compress(self, input_path: str | Path, output_path: str | Path) -> bool:
         """
         Executa a compressão via Ghostscript do arquivo de entrada para o de saída.
 
