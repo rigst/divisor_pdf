@@ -43,7 +43,7 @@ def bloco_443(linhas):
         profundidade += linha.count("{") - linha.count("}")
         if profundidade <= 0:
             trecho = linhas[inicio : i + 1]
-            if any("listen 443" in l for l in trecho):
+            if any("listen 443" in linha_trecho for linha_trecho in trecho):
                 return inicio, i
             inicio = None
     return None, None

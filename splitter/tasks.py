@@ -289,7 +289,7 @@ def process_split_job(self, job_id: int):
             job.save(update_fields=["status", "error_message", "processing_warnings"])
 
         # Em produção, permite retrying via Celery
-        raise self.retry(exc=exc, countdown=30)
+        raise self.retry(exc=exc, countdown=30) from exc
 
 
 @shared_task
