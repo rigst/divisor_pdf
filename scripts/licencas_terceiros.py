@@ -110,7 +110,7 @@ def diretas() -> set[str]:
         linha = linha.split("#", 1)[0].strip()
         if not linha or linha.startswith("-"):
             continue
-        nome = re.split(r"[\[<>=!~;]", linha, 1)[0].strip()
+        nome = re.split(r"[\[<>=!~;]", linha, maxsplit=1)[0].strip()
         if nome:
             nomes.add(normalizar(nome))
     return nomes
