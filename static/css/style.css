@@ -1361,6 +1361,17 @@ html {
 .confirmacao-texto a,
 .legal-page .link-button { color: var(--legal-accent-forte); }
 
+/* Sublinhado, e não só cor. Link dentro de um bloco de texto distinguido
+   apenas pela cor reprova o WCAG 1.4.1 (o axe acusa como `link-in-text-block`,
+   impacto serious): quem não separa as duas cores não vê que ali há um link.
+   Os atalhos e o histórico entram junto porque também vivem em meio a texto
+   corrido. */
+.legal-corpo a,
+.legal-atalhos a,
+.legal-aviso a,
+.legal-historico a,
+.confirmacao-texto a { text-decoration: underline; }
+
 .legal-corpo a:hover,
 .legal-atalhos a:hover,
 .confirmacao-texto a:hover { color: var(--legal-accent); }
