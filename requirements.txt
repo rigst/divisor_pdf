@@ -1,15 +1,26 @@
-Django>=6.0,<7.0
-celery>=5.4,<6.0
-redis>=5.0,<9.0
-pypdf>=5.0,<7.0
-gunicorn>=22.0,<27.0
-psycopg2-binary>=2.9,<3.0
-python-dotenv>=1.0,<2.0
-django-redis>=5.4,<7.0
+# Pin exato nas dependências diretas; as transitivas ficam no requirements.lock.
+#
+# Faixa (`>=6.0,<7.0`) não atualiza nada sozinha: o venv fica onde está até
+# alguém rodar `pip install -U`, e o arquivo continua parecendo saudável
+# enquanto a versão instalada envelhece. Pior, o CI resolvia a faixa para a
+# versão mais nova e testava um conjunto diferente do que roda em produção.
+# Estes números vieram do `pip freeze` do servidor, então a conversão não mudou
+# comportamento nenhum.
+#
+# Para atualizar: suba o pin aqui e regere o lock com o script do CI central —
+#   python .ci-shared/scripts/gerar_lock.py --python-version 3.12
+Django==6.0.8
+celery==5.6.3
+redis==8.1.0
+pypdf==6.15.0
+gunicorn==26.0.0
+psycopg2-binary==2.9.12
+python-dotenv==1.2.2
+django-redis==6.0.0
 
 # Conformidade legal (app `legal`): render e sanitização das políticas.
-markdown>=3.5,<4.0
-nh3>=0.2,<1.0
+markdown==3.10.3
+nh3==0.3.6
 
 # Tema do admin.
-django-unfold>=0.101,<1.0
+django-unfold==0.104.0

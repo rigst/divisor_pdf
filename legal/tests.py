@@ -6,6 +6,7 @@ from django.core.management import call_command
 from django.test import TestCase
 from django.urls import reverse
 
+from legal.testing import SENHA_TESTE
 from splitter.models import SplitJob
 
 from . import documentos_io
@@ -186,9 +187,7 @@ class AdminImutabilidadeTests(TestCase):
 
         self.admin = DocumentoLegalAdmin(DocumentoLegal, AdminSite())
         self.request = self.client.request().wsgi_request
-        self.request.user = Usuario.objects.create_superuser(
-            username="root", password="senha-forte-123"
-        )
+        self.request.user = Usuario.objects.create_superuser(username="root", password=SENHA_TESTE)
 
     def test_rascunho_e_editavel(self):
         rascunho = criar_documento(publicar=False)
