@@ -9,6 +9,7 @@ apontar para linhas que podem mudar.
 from django.conf import settings
 from django.db import models
 from django.utils import timezone
+from django.utils.safestring import mark_safe
 
 from .utils import calcular_sha256, renderizar_markdown
 
@@ -99,6 +100,16 @@ class DocumentoLegal(models.Model):
     def editavel(self):
         """Só rascunho sem aceite pode ser alterado."""
         return self.status == StatusDocumento.RASCUNHO and not self.tem_aceites
+
+    @property
+    def corpo_seguro(self):
+        """O HTML publicado, marcado como confiável para o template.
+
+        A afirmação "este HTML pode ser injetado" mora aqui, ao lado de quem a
+        torna verdadeira: `corpo_html` só é gravado por `publicar()`, que passa
+        o Markdown pelo nh3 com allowlist de tags e atributos.
+        """
+        return mark_safe(self.corpo_html)
 
     def html_preview(self):
         """Render do rascunho, sem congelar nada — para a pré-visualização."""
