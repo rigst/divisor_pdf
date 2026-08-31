@@ -120,4 +120,3 @@ if SENTRY_DSN:
         # Pacote ausente ou integração indisponível (ex.: Celery não instalado):
         # seguimos sem monitoramento, sem quebrar o app.
         pass
-
