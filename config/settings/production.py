@@ -103,10 +103,9 @@ SENTRY_DSN = os.getenv("SENTRY_DSN", "").strip()
 if SENTRY_DSN:
     try:
         import sentry_sdk
+        from django.core.exceptions import DisallowedHost
         from sentry_sdk.integrations.celery import CeleryIntegration
         from sentry_sdk.integrations.django import DjangoIntegration
-
-        from django.core.exceptions import DisallowedHost
 
         sentry_sdk.init(
             dsn=SENTRY_DSN,
