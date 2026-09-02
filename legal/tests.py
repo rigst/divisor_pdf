@@ -1,6 +1,7 @@
 """Testes do app `legal` no divisor — o único projeto com aceite anônimo."""
 
 from django.contrib.auth import get_user_model
+from django.contrib.auth.models import AnonymousUser
 from django.core.files.uploadedfile import SimpleUploadedFile
 from django.core.management import call_command
 from django.test import TestCase
@@ -249,3 +250,63 @@ class ServicesTests(TestCase):
         """Sem política publicada não há o que aceitar — o serviço não trava."""
         request = self.client.request().wsgi_request
         self.assertTrue(aceite_anonimo_valido(request))
+
+
+class AceiteObrigatorioMiddlewareTests(TestCase):
+    """Este projeto não ativa o middleware — não tem contas, e o aceite é
+    anônimo (ver o comentário em config/settings/base.py). Mas o app `legal` é
+    copiado entre os projetos, e nos que têm conta é este middleware que
+    obriga o re-aceite. Testar a cópia daqui protege as de lá."""
+
+    def _middleware(self, resposta="ok"):
+        from legal.middleware import AceiteObrigatorioMiddleware
+
+        return AceiteObrigatorioMiddleware(lambda request: resposta)
+
+    def test_anonimo_passa_direto(self):
+        from django.test import RequestFactory
+
+        pedido = RequestFactory().get("/")
+        pedido.user = AnonymousUser()
+
+        self.assertEqual(self._middleware()(pedido), "ok")
+
+    def test_prefixo_extra_do_projeto_entra_na_allowlist(self):
+        """LEGAL_ALLOWLIST_EXTRA existe para o trilhas liberar /sw.js: se o
+        service worker levasse 302 para o aceite, o navegador cacharia o
+        redirecionamento."""
+        with self.settings(LEGAL_ALLOWLIST_EXTRA=("/sw.js",)):
+            middleware = self._middleware()
+
+        self.assertIn("/sw.js", middleware.prefixos)
+        self.assertIn("/termos/", middleware.prefixos)
+
+
+class ExportarAceitesCsvTests(TestCase):
+    """A exportação em CSV é a via prática de responder a um pedido de titular
+    (LGPD) e de auditar aceites — e não tinha teste."""
+
+    def test_csv_traz_cabecalho_e_uma_linha_por_aceite(self):
+        from django.contrib.admin.sites import AdminSite
+
+        from legal.admin import AceiteLegalAdmin
+        from legal.models import AceiteLegal
+
+        documento = criar_documento()
+        pedido = self.client.request().wsgi_request
+        from legal.services import registrar_aceite
+
+        registrar_aceite(pedido, origem="teste", e_visitante=True)
+
+        admin_obj = AceiteLegalAdmin(AceiteLegal, AdminSite())
+        resposta = admin_obj.exportar_csv(pedido, AceiteLegal.objects.all())
+
+        self.assertEqual(resposta["Content-Type"], "text/csv; charset=utf-8")
+        self.assertIn("aceites.csv", resposta["Content-Disposition"])
+
+        linhas = resposta.content.decode("utf-8").strip().splitlines()
+        self.assertEqual(len(linhas), 2)  # cabeçalho + o aceite
+        self.assertIn("sha256_aceito", linhas[0])
+        self.assertIn("integro", linhas[0])
+        self.assertIn(documento.versao, linhas[1])
+        self.assertIn("sim", linhas[1])  # e_visitante
