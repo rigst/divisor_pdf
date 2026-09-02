@@ -8,7 +8,10 @@
 # comportamento nenhum.
 #
 # Para atualizar: suba o pin aqui e regere o lock com o script do CI central —
-#   python .ci-shared/scripts/gerar_lock.py --python-version 3.12
+#   python CLONE_DO_CI/scripts/gerar_lock.py --python-version 3.12
+#
+# (o script mora no rigst/ci e não é versionado aqui; o cabeçalho do
+# requirements.lock repete a invocação exata usada)
 Django==6.0.8
 celery==5.6.3
 redis==8.1.0
@@ -25,3 +28,15 @@ nh3==0.3.6
 # Tema do admin.
 django-unfold==0.104.0
 sentry-sdk==2.68.1
+
+# O pip entra aqui como qualquer outra dependência, e não como ferramenta à
+# parte. Ele é o que o CD executa a cada deploy, e enquanto não estava
+# declarado envelhecia sem que nada avisasse: em 02/09/2026 uma auditoria dos
+# venvs de produção achou o pip como o ÚNICO pacote vulnerável do parque (um
+# deles com a 24.0 e 7 achados), justamente porque nenhum PR do Dependabot o
+# cobria. Declarado, ele cai na mesma máquina do resto — Dependabot propõe,
+# lock guarda o hash, CD instala.
+#
+# Não use `pip install --upgrade pip` no deploy: isso instalaria versão não
+# fixada, que é o que o pin e o `--require-hashes` existem para evitar.
+pip==26.2.1
