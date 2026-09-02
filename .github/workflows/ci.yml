@@ -6,6 +6,13 @@ on:
   push:
     branches: [main]
   pull_request:
+  # Botão de reprovocação. Em 02/09/2026 um merge na main do sistema_vetorial
+  # não gerou evento de push: zero check-runs no commit, logo nenhum CI e —
+  # porque o CD pende de `workflow_run` — nenhum deploy. Um commit entrou na
+  # main sem validação e o servidor ficou para trás, em silêncio. Sem isto a
+  # única saída seria um commit vazio só para provocar o push de novo.
+  # Serve também de redeploy manual quando o CD falha por motivo transitório.
+  workflow_dispatch:
 
 permissions:
   contents: read
