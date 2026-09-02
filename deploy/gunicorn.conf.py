@@ -25,9 +25,9 @@ keepalive = 2
 # Process Name
 proc_name = "divisor_pdf"
 
-# Logging setup
-accesslog = "/var/www/divisor_pdf/media/gunicorn.access.log"
-errorlog = "/var/www/divisor_pdf/media/gunicorn.error.log"
+# Logging setup — stdout/stderr, capturado pelo journald via systemd.
+accesslog = "-"
+errorlog = "-"
 loglevel = "info"
 
 # Daemonize or not (systemd will handle execution, so daemon=False is preferred)
