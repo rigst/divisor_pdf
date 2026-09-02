@@ -605,3 +605,248 @@ class PDFCeleryTasksTestCase(TestCase):
         self.assertEqual(
             response["Content-Disposition"], 'attachment; filename="doc_comprimido.pdf"'
         )
+
+
+@override_settings(MEDIA_ROOT=TEMP_MEDIA_ROOT)
+class CompressaoGhostscriptTestCase(TestCase):
+    """`_compress_bytes` é o caminho que chama o Ghostscript e não era exercido
+    por teste nenhum. O subprocess é dublado: o Ghostscript não está instalado
+    no runner do CI, e um teste que dependesse dele passaria aqui e quebraria
+    lá."""
+
+    def setUp(self):
+        self.splitter = PDFSplitter(max_size_bytes=10_000_000, compress_level="medium")
+        self.pdf_bytes = create_dummy_pdf(num_pages=2)
+
+    def test_devolve_o_pdf_comprimido_quando_o_ghostscript_responde(self):
+        comprimido = b"%PDF-1.4 comprimido"
+
+        def gs_falso(cmd, **kwargs):
+            # O comando leva -sOutputFile=<caminho>; é lá que o gs escreveria.
+            destino = next(a.split("=", 1)[1] for a in cmd if a.startswith("-sOutputFile="))
+            Path(destino).write_bytes(comprimido)
+            return MagicMock(returncode=0)
+
+        with patch("subprocess.run", side_effect=gs_falso) as run:
+            saida = self.splitter._compress_bytes(self.pdf_bytes, "medium")
+
+        self.assertEqual(saida, comprimido)
+        cmd = run.call_args.args[0]
+        self.assertEqual(cmd[0], "gs")
+        self.assertIn("-dPDFSETTINGS=/ebook", cmd)
+
+    def test_nivel_desconhecido_cai_no_perfil_padrao(self):
+        def gs_falso(cmd, **kwargs):
+            destino = next(a.split("=", 1)[1] for a in cmd if a.startswith("-sOutputFile="))
+            Path(destino).write_bytes(b"%PDF-1.4 x")
+            return MagicMock(returncode=0)
+
+        with patch("subprocess.run", side_effect=gs_falso) as run:
+            self.splitter._compress_bytes(self.pdf_bytes, "inexistente")
+
+        self.assertIn("-dPDFSETTINGS=/ebook", run.call_args.args[0])
+
+    def test_falha_do_ghostscript_devolve_o_original_sem_estourar(self):
+        """Compressão é otimização: se o gs falhar ou estourar o timeout, o
+        usuário tem de receber o PDF original, não um erro."""
+        with patch("subprocess.run", side_effect=OSError("gs ausente")):
+            saida = self.splitter._compress_bytes(self.pdf_bytes, "medium")
+
+        self.assertEqual(saida, self.pdf_bytes)
+
+    def test_saida_vazia_do_ghostscript_devolve_o_original(self):
+        """O gs pode sair com código 0 e não escrever nada. Sem esta guarda o
+        usuário receberia um PDF de zero byte."""
+        with patch("subprocess.run", return_value=MagicMock(returncode=0)):
+            saida = self.splitter._compress_bytes(self.pdf_bytes, "medium")
+
+        self.assertEqual(saida, self.pdf_bytes)
+
+
+@override_settings(MEDIA_ROOT=TEMP_MEDIA_ROOT, CELERY_TASK_ALWAYS_EAGER=True)
+class FalhaNoProcessamentoTestCase(TestCase):
+    """O `except` de process_split_job não era exercido. É ele que impede o
+    job de ficar eternamente em PROCESSANDO na tela quando algo estoura."""
+
+    def _job(self, session_key):
+        return SplitJob.objects.create(
+            session_key=session_key,
+            original_filenames=["doc.pdf"],
+            compress_level="none",
+            should_split=True,
+            max_size_mb=10.0,
+        )
+
+    def test_job_sem_arquivo_de_entrada_termina_como_falho(self):
+        """Caminho real de falha: o diretório de entrada não tem PDF nenhum.
+        Sem o except, o job ficaria em PROCESSANDO para sempre."""
+        job = self._job("sessao-sem-arquivos")
+
+        process_split_job(job.pk)
+
+        job.refresh_from_db()
+        self.assertEqual(job.status, SplitJob.Status.FAILED)
+        self.assertTrue(job.error_message)
+
+    def test_em_modo_eager_nao_tenta_retry(self):
+        """Sem esta guarda o retry do Celery dispararia sem backend de
+        resultados, e o erro real ficaria escondido atrás de outro."""
+        job = self._job("sessao-sem-retry")
+
+        with patch.object(process_split_job, "retry") as retry:
+            process_split_job(job.pk)
+
+        retry.assert_not_called()
+        job.refresh_from_db()
+        self.assertEqual(job.status, SplitJob.Status.FAILED)
+
+    def test_job_inexistente_apenas_registra_e_sai(self):
+        self.assertIsNone(process_split_job(999999))
+
+
+class SplitJobStrTestCase(TestCase):
+    """O __str__ é o que aparece na lista do admin; com três arquivos ou mais
+    ele resume, e esse ramo não era exercido."""
+
+    def _job(self, nomes):
+        return SplitJob.objects.create(
+            session_key="sessao-str",
+            original_filenames=nomes,
+            compress_level="none",
+            should_split=True,
+            max_size_mb=10.0,
+        )
+
+    def test_lista_curta_aparece_inteira(self):
+        job = self._job(["a.pdf", "b.pdf"])
+        self.assertIn("a.pdf, b.pdf", str(job))
+        self.assertNotIn("(+", str(job))
+
+    def test_lista_longa_e_resumida_com_o_excedente(self):
+        job = self._job(["a.pdf", "b.pdf", "c.pdf", "d.pdf", "e.pdf"])
+        texto = str(job)
+        self.assertIn("a.pdf, b.pdf, c.pdf", texto)
+        self.assertIn("(+2)", texto)
+        self.assertIn(str(job.pk), texto)
+
+
+@override_settings(MEDIA_ROOT=TEMP_MEDIA_ROOT)
+class DownloadGuardasTestCase(TestCase):
+    """As quatro guardas do endpoint de download não eram exercidas. Duas são
+    de segurança (job de outra sessão não pode ser baixado) e duas evitam
+    devolver arquivo inexistente como se fosse ZIP válido."""
+
+    def setUp(self):
+        # Materializa a sessão para ter session_key.
+        self.client.get("/")
+        self.session_key = self.client.session.session_key
+
+    def _job(self, **kwargs):
+        dados = {
+            "session_key": self.session_key,
+            "original_filenames": ["doc.pdf"],
+            "compress_level": "none",
+            "should_split": True,
+            "max_size_mb": 10.0,
+        }
+        dados.update(kwargs)
+        return SplitJob.objects.create(**dados)
+
+    def test_job_inexistente_da_404(self):
+        resposta = self.client.get("/api/download/999999/")
+        self.assertEqual(resposta.status_code, 404)
+
+    def test_job_de_outra_sessao_da_404_e_nao_403(self):
+        """404 e não 403 de propósito: 403 confirmaria que o job existe."""
+        alheio = self._job(session_key="sessao-de-outra-pessoa")
+
+        resposta = self.client.get(f"/api/download/{alheio.pk}/")
+
+        self.assertEqual(resposta.status_code, 404)
+
+    def test_job_ainda_processando_da_400(self):
+        job = self._job(status=SplitJob.Status.PROCESSING)
+
+        resposta = self.client.get(f"/api/download/{job.pk}/")
+
+        self.assertEqual(resposta.status_code, 400)
+
+    def test_arquivo_ja_expirado_explica_a_retencao(self):
+        """Os arquivos vivem 1 hora; depois disso a resposta tem de dizer isso,
+        não estourar."""
+        job = self._job(
+            status=SplitJob.Status.COMPLETED,
+            output_zip_path=str(Path(TEMP_MEDIA_ROOT) / "sumiu.zip"),
+        )
+
+        resposta = self.client.get(f"/api/download/{job.pk}/")
+
+        self.assertEqual(resposta.status_code, 404)
+        self.assertIn("1 hora", resposta.content.decode())
+
+    def test_status_de_job_falho_devolve_a_mensagem_de_erro(self):
+        job = self._job(status=SplitJob.Status.FAILED, error_message="pdf corrompido")
+
+        dados = self.client.get(f"/api/status/{job.pk}/").json()
+
+        self.assertEqual(dados["status"], SplitJob.Status.FAILED)
+        self.assertEqual(dados["error_message"], "pdf corrompido")
+
+
+@override_settings(MEDIA_ROOT=TEMP_MEDIA_ROOT)
+class UploadValidacaoTestCase(TestCase):
+    """As guardas de entrada do upload — a fronteira por onde entra tudo que
+    vem do navegador — não eram exercidas. Cada uma tem de responder 400 com
+    mensagem, não 500."""
+
+    def setUp(self):
+        self.pdf = SimpleUploadedFile(
+            name="a.pdf", content=create_dummy_pdf(2), content_type="application/pdf"
+        )
+
+    def _post(self, **campos):
+        payload = {"files": [self.pdf], "compress_level": "none", "should_split": "false"}
+        payload.update(campos)
+        return self.client.post("/api/upload/", payload)
+
+    def test_nivel_de_compressao_invalido(self):
+        resposta = self._post(compress_level="turbo")
+        self.assertEqual(resposta.status_code, 400)
+        self.assertIn("compressão", resposta.json()["error"])
+
+    def test_dividir_sem_informar_o_tamanho(self):
+        resposta = self._post(should_split="true")
+        self.assertEqual(resposta.status_code, 400)
+        self.assertIn("tamanho máximo", resposta.json()["error"])
+
+    def test_tamanho_maximo_nao_numerico(self):
+        resposta = self._post(should_split="true", max_size_mb="dez")
+        self.assertEqual(resposta.status_code, 400)
+        self.assertIn("inválido", resposta.json()["error"])
+
+    def test_sem_nenhuma_acao_escolhida(self):
+        """Nem comprimir nem dividir: não há o que fazer com o arquivo."""
+        resposta = self._post(compress_level="none", should_split="false")
+        self.assertEqual(resposta.status_code, 400)
+        self.assertIn("pelo menos uma ação", resposta.json()["error"])
+
+    def test_sem_nenhum_arquivo(self):
+        """Com uma ação escolhida, a guarda seguinte é a dos arquivos."""
+        resposta = self.client.post(
+            "/api/upload/", {"compress_level": "medium", "should_split": "false"}
+        )
+        self.assertEqual(resposta.status_code, 400)
+        self.assertIn("pelo menos um arquivo", resposta.json()["error"])
+
+
+class PDFCompressorNivelTestCase(TestCase):
+    def test_nivel_invalido_e_recusado_na_construcao(self):
+        """Falhar na construção e não na hora de rodar o Ghostscript: o erro
+        aparece antes de gravar arquivo nenhum."""
+        with self.assertRaises(ValueError) as ctx:
+            PDFCompressor(quality_level="ultra")
+        self.assertIn("ultra", str(ctx.exception))
+
+    def test_niveis_validos_mapeiam_para_perfis_do_ghostscript(self):
+        for nivel, perfil in PDFCompressor.SETTINGS_MAP.items():
+            self.assertEqual(PDFCompressor(quality_level=nivel).gs_setting, perfil)
