@@ -24,3 +24,4 @@ nh3==0.3.6
 
 # Tema do admin.
 django-unfold==0.104.0
+sentry-sdk==2.68.1
