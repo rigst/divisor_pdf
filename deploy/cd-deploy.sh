@@ -34,9 +34,17 @@ main() {
 
   local antes; antes="$(git rev-parse HEAD)"
 
-  local tem_migracao tem_requirements
+  local tem_migracao tem_requirements troca_gunicorn=0
   tem_migracao="$(git diff --name-only "HEAD..$sha" -- '*/migrations/*')"
   tem_requirements="$(git diff --name-only "HEAD..$sha" -- requirements.txt)"
+
+  # SIGHUP recicla os workers mas não reexecuta o mestre: um upgrade de
+  # gunicorn é instalado no venv e nunca entra em vigor. Só nesse caso vale a
+  # janela de 502 do restart — ver rigst/ci RUNBOOK.md seção 7.1.2.
+  if git diff "HEAD..$sha" -- requirements.txt requirements.lock \
+     | grep -qiE '^[+-]gunicorn([[:space:]]|[=<>!~]|$)'; then
+    troca_gunicorn=1
+  fi
 
   if [[ -n "$tem_migracao" && -n "$BACKUP_SCRIPT" ]]; then
     "$BACKUP_SCRIPT"
@@ -54,7 +62,11 @@ main() {
   "$VENV/bin/python" manage.py migrate --check || "$VENV/bin/python" manage.py migrate
   "$VENV/bin/python" manage.py collectstatic --noinput
 
-  sudo systemctl reload "$WEB_SERVICE"
+  if (( troca_gunicorn )); then
+    sudo systemctl restart "$WEB_SERVICE"
+  else
+    sudo systemctl reload "$WEB_SERVICE"
+  fi
   for unidade in "${OTHER_SERVICES[@]}"; do
     sudo systemctl restart "$unidade"
   done
