@@ -1,10 +1,14 @@
-# Gerado por scripts/gerar_lock.py a partir de requirements.txt — não edite à mão.
+# Gerado por gerar_lock.py, do repo rigst/ci, a partir de requirements.txt
+# — não edite à mão.
 #
 # Resolvido para Python 3.12, incluindo as transitivas.
 # Os hashes cobrem todos os artefatos de cada versão, então o arquivo
 # vale em qualquer arquitetura.
 #
-# Depois de mexer em requirements.txt:  python scripts/gerar_lock.py
+# Depois de mexer em requirements.txt, na raiz deste projeto, com um
+# clone do rigst/ci à mão:
+#
+#   python CLONE_DO_CI/scripts/gerar_lock.py --python-version 3.12
 
 amqp==5.3.1 \
     --hash=sha256:43b3319e1b4e7d1251833a93d672b4af1e40f3d632d479b98661a95f117880a2 \
