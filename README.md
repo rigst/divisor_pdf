@@ -1,5 +1,12 @@
 # Divisor PDF
 
+[![CI](https://github.com/rigst/divisor_pdf/actions/workflows/ci.yml/badge.svg)](https://github.com/rigst/divisor_pdf/actions/workflows/ci.yml)
+[![Cobertura](https://codecov.io/gh/rigst/divisor_pdf/branch/main/graph/badge.svg)](https://codecov.io/gh/rigst/divisor_pdf)
+[![Quality Gate](https://sonarcloud.io/api/project_badges/measure?project=rigst_divisor_pdf&metric=alert_status)](https://sonarcloud.io/summary/new_code?id=rigst_divisor_pdf)
+[![Licença: AGPL v3](https://img.shields.io/badge/licen%C3%A7a-AGPL--3.0-blue.svg)](LICENSE)
+[![Python 3.12+](https://img.shields.io/badge/python-3.12%2B-blue.svg)](https://www.python.org/)
+[![Django 6](https://img.shields.io/badge/django-6.0-092E20.svg)](https://www.djangoproject.com/)
+
 Aplicacao Django para enviar PDFs, comprimir com Ghostscript, dividir em partes menores com `pypdf` e baixar o resultado como PDF unico ou ZIP. O processamento pesado roda em Celery.
 
 ## Requisitos
