@@ -100,7 +100,14 @@ jobs:
       #
       # As duas listas repetem a do pipeline compartilhado porque propriedade
       # repetida no scanner é substituída, não somada.
+      # `**/*.js` e `**/*.html`: não existe teste de JavaScript neste projeto e
+      # nunca existiu, então contar essas linhas como 0% não informa nada — só
+      # esconde a cobertura real do Python atrás de um número ruim. Mesmo
+      # tratamento já dado ao sistema_vetorial.
+      #
+      # `**/celery.py`: o módulo é configuração de app, executado pelo worker e
+      # não pela suíte.
       sonar-args: >-
         -Dsonar.qualitygate.wait=true
         -Dsonar.exclusions=**/migrations/**,**/staticfiles/**,**/node_modules/**,**/venv/**,**/.venv/**,**/*.jpg,**/*.jpeg,**/*.png,**/*.gif,**/*.ico,**/*.webp,**/*.pdf,**/*.woff,**/*.woff2,**/*.ttf,**/*.eot,scripts/**,deploy/**
-        -Dsonar.coverage.exclusions=**/migrations/**,**/tests.py,**/tests_*.py,**/test_*.py,**/tests/**,**/conftest.py,**/settings/**,**/manage.py,**/wsgi.py,**/asgi.py,scripts/**,deploy/**
+        -Dsonar.coverage.exclusions=**/migrations/**,**/tests.py,**/tests_*.py,**/test_*.py,**/tests/**,**/conftest.py,**/settings/**,**/settings.py,**/manage.py,**/wsgi.py,**/asgi.py,**/celery.py,scripts/**,deploy/**,**/*.js,**/*.html
