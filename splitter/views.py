@@ -42,6 +42,7 @@ def _safe_pdf_filename(filename: str, used_names: set[str]) -> str:
     return candidate
 
 
+@require_GET
 def index(request):
     """Renderiza a página principal do aplicativo."""
     from legal.forms import AceiteForm
