@@ -19,7 +19,7 @@ pypdf==6.16.1
 gunicorn==26.0.0
 psycopg2-binary==2.9.12
 python-dotenv==1.2.2
-django-redis==6.0.0
+django-redis==7.0.0
 
 # Conformidade legal (app `legal`): render e sanitização das políticas.
 markdown==3.10.3
