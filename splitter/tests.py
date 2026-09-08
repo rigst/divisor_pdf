@@ -10,10 +10,11 @@ from django.test import TestCase, override_settings
 from django.utils import timezone
 from pypdf import PdfReader, PdfWriter
 
+from core.uploads import nome_pdf_seguro
+
 from .models import SplitJob
 from .services import PDFCompressor, PDFSplitter
 from .tasks import cleanup_expired_sessions, process_split_job
-from .views import _safe_pdf_filename
 
 # Diretório temporário específico para arquivos de teste
 TEMP_MEDIA_ROOT = tempfile.mkdtemp(prefix="divisor_pdf_test_media_")
@@ -165,9 +166,9 @@ class PDFViewsTestCase(TestCase):
         """Valida normalizacao de nomes antes de gravar uploads em disco."""
         used_names = set()
 
-        first = _safe_pdf_filename("../../relatorio final.pdf", used_names)
-        second = _safe_pdf_filename("../../relatorio final.pdf", used_names)
-        third = _safe_pdf_filename("", used_names)
+        first = nome_pdf_seguro("../../relatorio final.pdf", used_names)
+        second = nome_pdf_seguro("../../relatorio final.pdf", used_names)
+        third = nome_pdf_seguro("", used_names)
 
         self.assertEqual(first, "relatorio_final.pdf")
         self.assertEqual(second, "relatorio_final_2.pdf")

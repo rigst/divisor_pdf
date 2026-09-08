@@ -1418,3 +1418,14 @@ html {
     line-height: 1.6;
     margin-bottom: var(--space-lg);
 }
+
+/* O drop-zone da tela de OCR é um <button> (teclado e foco nativos), então
+   precisa perder a aparência de botão do navegador e ocupar a largura toda. */
+button.drop-zone {
+    width: 100%;
+    font: inherit;
+    color: inherit;
+    text-align: center;
+    -webkit-appearance: none;
+    appearance: none;
+}

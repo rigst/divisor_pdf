@@ -30,6 +30,38 @@ def _zipar(arquivos: list[Path], destino: Path) -> Path:
     return destino
 
 
+def _reconhecer(processor, pdf_path: Path, output_dir: Path, avisos: list[str]):
+    """
+    Reconhece um arquivo e grava os dois formatos.
+
+    Returns:
+        (pdf_reconhecido, markdown, caracteres), ou None se o arquivo falhou —
+        um arquivo problemático vira aviso e não invalida os outros do envio.
+    """
+    from .services import extrair_paginas, texto_para_markdown
+
+    pdf_saida = output_dir / f"{pdf_path.stem}_ocr.pdf"
+    try:
+        processor.run(pdf_path, pdf_saida)
+    except Exception as exc:
+        avisos.append(f'"{pdf_path.name}": {exc}')
+        logger.warning(f"OCR falhou para {pdf_path.name}: {exc}")
+        return None
+
+    paginas = extrair_paginas(pdf_saida)
+    md_saida = output_dir / f"{pdf_path.stem}_ocr.md"
+    md_saida.write_text(texto_para_markdown(paginas, pdf_path.stem), encoding="utf-8")
+
+    caracteres = sum(len(pagina.strip()) for pagina in paginas)
+    if caracteres == 0:
+        avisos.append(
+            f'Nenhum texto foi reconhecido em "{pdf_path.name}". '
+            "O arquivo pode estar em branco ou com a digitalização ilegível."
+        )
+
+    return pdf_saida, md_saida, caracteres
+
+
 @shared_task(bind=True, max_retries=2, acks_late=True)
 def process_ocr_job(self, job_id: int):
     """
@@ -42,7 +74,7 @@ def process_ocr_job(self, job_id: int):
     5. Remove os PDFs de entrada
     """
     from .models import OCRJob
-    from .services import OCRProcessor, extrair_paginas, texto_para_markdown
+    from .services import OCRProcessor
 
     try:
         job = OCRJob.objects.get(pk=job_id)
@@ -76,31 +108,13 @@ def process_ocr_job(self, job_id: int):
 
         for idx, pdf_path in enumerate(input_files):
             logger.info(f"[{idx + 1}/{total_files}] OCR: {pdf_path.name}")
-            pdf_saida = output_dir / f"{pdf_path.stem}_ocr.pdf"
+            resultado = _reconhecer(processor, pdf_path, output_dir, processing_warnings)
 
-            try:
-                processor.run(pdf_path, pdf_saida)
-            except Exception as exc:
-                # Um arquivo problemático não invalida os outros do mesmo envio.
-                processing_warnings.append(f'"{pdf_path.name}": {exc}')
-                logger.warning(f"OCR falhou para {pdf_path.name}: {exc}")
-                continue
-
-            paginas = extrair_paginas(pdf_saida)
-            markdown = texto_para_markdown(paginas, pdf_path.stem)
-            md_saida = output_dir / f"{pdf_path.stem}_ocr.md"
-            md_saida.write_text(markdown, encoding="utf-8")
-
-            caracteres = sum(len(p.strip()) for p in paginas)
-            total_caracteres += caracteres
-            if caracteres == 0:
-                processing_warnings.append(
-                    f'Nenhum texto foi reconhecido em "{pdf_path.name}". '
-                    "O arquivo pode estar em branco ou com a digitalização ilegível."
-                )
-
-            pdfs_gerados.append(pdf_saida)
-            mds_gerados.append(md_saida)
+            if resultado is not None:
+                pdf_saida, md_saida, caracteres = resultado
+                pdfs_gerados.append(pdf_saida)
+                mds_gerados.append(md_saida)
+                total_caracteres += caracteres
 
             job.progress = int(((idx + 1) / total_files) * 90)
             job.save(update_fields=["progress"])

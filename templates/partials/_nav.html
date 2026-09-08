@@ -1,0 +1,15 @@
+{% comment %}
+Barra de navegação, comum às duas telas. `ativo` marca o item da página atual
+("divisor" ou "ocr").
+{% endcomment %}
+<header class="ds-nav" id="site-nav">
+    <nav class="ds-nav-pill" aria-label="Navegação principal">
+        <a class="ds-nav-brand" href="/">Divisor<span class="logo-accent">PDF</span></a>
+        <ul class="ds-nav-links">
+            {# `ativo` diz qual item recebe o estado atual; sem ele, nenhum. #}
+            <li><a href="/"{% if ativo == "divisor" %} class="is-active" aria-current="page"{% endif %}>Dividir &amp; comprimir</a></li>
+            <li><a href="{% url 'ocr:index' %}"{% if ativo == "ocr" %} class="is-active" aria-current="page"{% endif %}>OCR</a></li>
+        </ul>
+        <a class="ds-nav-cta" href="https://stolben.com/" target="_blank" rel="noreferrer">Stölben ↗</a>
+    </nav>
+</header>

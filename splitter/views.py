@@ -7,7 +7,6 @@ import logging
 from pathlib import Path
 
 from django.conf import settings
-from django.db import models
 from django.http import (
     FileResponse,
     HttpResponseBadRequest,
@@ -15,31 +14,18 @@ from django.http import (
     JsonResponse,
 )
 from django.shortcuts import render
-from django.utils.text import get_valid_filename
 from django.views.decorators.csrf import csrf_protect
 from django.views.decorators.http import require_GET, require_POST
 
+# As mesmas validações valem para a tela de OCR; moram em um lugar só.
+from core.uploads import (
+    UploadInvalido,
+    gravar_uploads,
+    validar_pdfs,
+    validar_uso_da_sessao,
+)
+
 logger = logging.getLogger(__name__)
-
-
-def _safe_pdf_filename(filename: str, used_names: set[str]) -> str:
-    """Normaliza o nome do upload e evita sobrescrita dentro do mesmo job."""
-    raw_name = Path(filename).name or "arquivo.pdf"
-    safe_name = get_valid_filename(raw_name)
-
-    stem = Path(safe_name).stem or "arquivo"
-    suffix = Path(safe_name).suffix.lower()
-    if suffix != ".pdf":
-        safe_name = f"{stem}.pdf"
-
-    candidate = safe_name
-    counter = 2
-    while candidate in used_names:
-        candidate = f"{stem}_{counter}.pdf"
-        counter += 1
-
-    used_names.add(candidate)
-    return candidate
 
 
 @require_GET
@@ -136,85 +122,17 @@ def upload(request):
         except (ValueError, TypeError):
             return JsonResponse({"error": "Valor inválido para tamanho máximo."}, status=400)
 
-    # Validar arquivos
-    files = request.FILES.getlist("files")
-    if not files:
-        return JsonResponse({"error": "Envie pelo menos um arquivo PDF."}, status=400)
-
-    # Validar cada arquivo
-    total_size = 0
-    filenames = []
-    upload_files = []
-    used_filenames: set[str] = set()
-    for f in files:
-        # Verificar extensão
-        if not f.name.lower().endswith(".pdf"):
-            return JsonResponse({"error": f'O arquivo "{f.name}" não é um PDF.'}, status=400)
-
-        # Verificar magic bytes do PDF
-        header = f.read(5)
-        f.seek(0)
-        if header != b"%PDF-":
-            return JsonResponse({"error": f'O arquivo "{f.name}" não é um PDF válido.'}, status=400)
-
-        # Verificar tamanho individual
-        if f.size > settings.MAX_UPLOAD_SIZE:
-            size_mb = f.size / (1024 * 1024)
-            return JsonResponse(
-                {
-                    "error": (
-                        f'O arquivo "{f.name}" ({size_mb:.1f} MB) excede '
-                        f"o limite de {settings.MAX_UPLOAD_SIZE_MB} MB."
-                    )
-                },
-                status=400,
-            )
-
-        total_size += f.size
-        safe_name = _safe_pdf_filename(f.name, used_filenames)
-        filenames.append(safe_name)
-        upload_files.append((f, safe_name))
-
-    # Verificar tamanho total
-    if total_size > settings.MAX_TOTAL_UPLOAD_SIZE:
-        total_mb = total_size / (1024 * 1024)
-        return JsonResponse(
-            {
-                "error": (
-                    f"O tamanho total ({total_mb:.1f} MB) excede "
-                    f"o limite de {settings.MAX_TOTAL_UPLOAD_MB} MB."
-                )
-            },
-            status=400,
-        )
-
     # Criar a sessão se não existir
     if not request.session.session_key:
         request.session.create()
 
     session_key = request.session.session_key
 
-    active_session_usage_mb = (
-        SplitJob.objects.filter(
-            session_key=session_key,
-            cleaned_up=False,
-        )
-        .exclude(status=SplitJob.Status.FAILED)
-        .aggregate(total=models.Sum("total_input_size_mb"))["total"]
-        or 0
-    )
-    projected_total_mb = active_session_usage_mb + (total_size / (1024 * 1024))
-    if projected_total_mb > settings.MAX_TOTAL_UPLOAD_MB:
-        return JsonResponse(
-            {
-                "error": (
-                    f"O uso acumulado desta sessão ({projected_total_mb:.1f} MB) excede "
-                    f"o limite de {settings.MAX_TOTAL_UPLOAD_MB} MB. Aguarde a limpeza "
-                    "automática dos arquivos antigos ou inicie uma nova sessão."
-                )
-            },
-            status=400,
-        )
+    try:
+        filenames, upload_files, total_size = validar_pdfs(request.FILES.getlist("files"))
+        validar_uso_da_sessao(SplitJob, session_key, total_size)
+    except UploadInvalido as recusa:
+        return JsonResponse({"error": str(recusa)}, status=400)
 
     try:
         # Criar o SplitJob
@@ -228,14 +146,7 @@ def upload(request):
         )
 
         # Salvar os arquivos originais em disco
-        input_dir = job.input_dir
-        input_dir.mkdir(parents=True, exist_ok=True)
-
-        for f, safe_name in upload_files:
-            file_path = input_dir / safe_name
-            with open(file_path, "wb") as dest:
-                for chunk in f.chunks():
-                    dest.write(chunk)
+        gravar_uploads(upload_files, job.input_dir)
 
         # Enfileirar processamento no Celery
         if getattr(settings, "CELERY_TASK_ALWAYS_EAGER", False):

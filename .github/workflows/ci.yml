@@ -30,7 +30,7 @@ jobs:
     with:
       python-version: "3.12"
       django-settings-module: config.settings.production
-      source-paths: "config legal splitter ocr"
+      source-paths: "config core legal splitter ocr"
 
       # Os testes rodam nos settings de desenvolvimento (SQLite), então o job
       # não precisa de Postgres.

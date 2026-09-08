@@ -7,6 +7,36 @@
  * Mesma estrutura do app.js do divisor, sem as opções de compressão/divisão.
  */
 
+// --- Helpers puros, fora do listener: não dependem do DOM desta página ---
+
+// Tipos do app ('error'/'success') mapeados para os do design system.
+function showToast(message, type = 'error') {
+    const dsType = { error: 'danger', success: 'success', warn: 'warn', info: 'info' }[type] || 'danger';
+    if (typeof window.dsToast === 'function') {
+        window.dsToast(message, dsType);
+    } else {
+        // Degradação se o stolben-ui.js não tiver carregado.
+        window.alert(message);
+    }
+}
+
+function formatBytes(bytes, decimals = 2) {
+    if (bytes === 0) return '0 Bytes';
+    const k = 1024;
+    const sizes = ['Bytes', 'KB', 'MB', 'GB'];
+    const i = Math.floor(Math.log(bytes) / Math.log(k));
+    return Number.parseFloat((bytes / Math.pow(k, i)).toFixed(decimals)) + ' ' + sizes[i];
+}
+
+function formatDuration(seconds) {
+    if (!Number.isFinite(seconds) || seconds <= 0) return 'menos de 1s';
+    const total = Math.max(1, Math.round(seconds));
+    const minutes = Math.floor(total / 60);
+    const rest = total % 60;
+    if (minutes <= 0) return `${rest}s`;
+    return `${minutes}min ${rest.toString().padStart(2, '0')}s`;
+}
+
 document.addEventListener('DOMContentLoaded', () => {
     const siteNav = document.getElementById('site-nav');
     if (siteNav) {
@@ -80,40 +110,16 @@ document.addEventListener('DOMContentLoaded', () => {
     function saveActiveJob(jobId) {
         try {
             localStorage.setItem(ACTIVE_JOB_KEY, JSON.stringify({ jobId, ts: Date.now() }));
-        } catch (e) { /* localStorage indisponível: degrada sem quebrar */ }
+        } catch (e) { /* localStorage indisponível (aba anônima, cookies bloqueados): degrada sem quebrar */ }
     }
     function clearActiveJob() {
-        try { localStorage.removeItem(ACTIVE_JOB_KEY); } catch (e) {}
+        // Falha aqui só significa que não deu para esquecer o job; nada a fazer.
+        try { localStorage.removeItem(ACTIVE_JOB_KEY); } catch (e) { /* ignorado de propósito */ }
     }
     function getActiveJob() {
+        // Storage indisponível ou valor corrompido: seguir sem job ativo.
         try { return JSON.parse(localStorage.getItem(ACTIVE_JOB_KEY) || 'null'); }
         catch (e) { return null; }
-    }
-
-    function showToast(message, type = 'error') {
-        const dsType = { error: 'danger', success: 'success', warn: 'warn', info: 'info' }[type] || 'danger';
-        if (typeof window.dsToast === 'function') {
-            window.dsToast(message, dsType);
-        } else {
-            window.alert(message);
-        }
-    }
-
-    function formatBytes(bytes, decimals = 2) {
-        if (bytes === 0) return '0 Bytes';
-        const k = 1024;
-        const sizes = ['Bytes', 'KB', 'MB', 'GB'];
-        const i = Math.floor(Math.log(bytes) / Math.log(k));
-        return parseFloat((bytes / Math.pow(k, i)).toFixed(decimals)) + ' ' + sizes[i];
-    }
-
-    function formatDuration(seconds) {
-        if (!Number.isFinite(seconds) || seconds <= 0) return 'menos de 1s';
-        const total = Math.max(1, Math.round(seconds));
-        const minutes = Math.floor(total / 60);
-        const rest = total % 60;
-        if (minutes <= 0) return `${rest}s`;
-        return `${minutes}min ${rest.toString().padStart(2, '0')}s`;
     }
 
     // --- Previsão de tempo ---
@@ -182,13 +188,9 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     // --- Seleção de arquivos ---
+    // Sem handler de teclado: o drop-zone é um <button>, e Enter/Espaço já
+    // disparam o clique. Um listener extra abriria o seletor duas vezes.
     dropZone.addEventListener('click', () => fileInput.click());
-    dropZone.addEventListener('keydown', (e) => {
-        if (e.key === 'Enter' || e.key === ' ') {
-            e.preventDefault();
-            fileInput.click();
-        }
-    });
 
     ['dragenter', 'dragover'].forEach(evt => {
         dropZone.addEventListener(evt, (e) => {
@@ -207,7 +209,7 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 
     dropZone.addEventListener('drop', (e) => {
-        if (e.dataTransfer && e.dataTransfer.files) handleFiles(e.dataTransfer.files);
+        if (e.dataTransfer?.files) handleFiles(e.dataTransfer.files);
     });
 
     fileInput.addEventListener('change', (e) => handleFiles(e.target.files));
@@ -349,7 +351,7 @@ document.addEventListener('DOMContentLoaded', () => {
         selectedFiles.forEach(file => formData.append('files', file));
         formData.append('idioma', getIdioma());
         formData.append('forcar_ocr', forcarOcrCheckbox.checked ? 'true' : 'false');
-        if (aceiteCheckbox && aceiteCheckbox.checked) formData.append('aceite_legal', 'on');
+        if (aceiteCheckbox?.checked) formData.append('aceite_legal', 'on');
 
         const csrfToken = document.querySelector('[name=csrfmiddlewaretoken]').value;
 
@@ -614,7 +616,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const ativo = getActiveJob();
         if (!ativo || !ativo.jobId) return;
 
-        if (ativo.ts && (Date.now() - ativo.ts) > ACTIVE_JOB_TTL_MS) {
+        if (ativo.ts && Date.now() - ativo.ts > ACTIVE_JOB_TTL_MS) {
             clearActiveJob();
             return;
         }
@@ -649,6 +651,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 startPolling(ativo.jobId);
             }
         } catch (e) {
+            // Ainda sem rede: mantém a tela e deixa o polling reconectar sozinho.
             processingTitle.textContent = 'Reconhecendo...';
             startPolling(ativo.jobId);
         }

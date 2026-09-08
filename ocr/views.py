@@ -8,7 +8,6 @@ import logging
 from pathlib import Path
 
 from django.conf import settings
-from django.db import models
 from django.http import (
     FileResponse,
     HttpResponseBadRequest,
@@ -19,11 +18,17 @@ from django.shortcuts import render
 from django.views.decorators.csrf import csrf_protect
 from django.views.decorators.http import require_GET, require_POST
 
-# Normalização do nome do upload: a regra é a mesma do divisor, e duplicá-la
-# significaria manter duas versões da mesma defesa contra path traversal.
-from splitter.views import _safe_pdf_filename
+# As validações de upload são as mesmas do divisor e moram em um lugar só.
+from core.uploads import (
+    UploadInvalido,
+    gravar_uploads,
+    validar_pdfs,
+    validar_uso_da_sessao,
+)
 
 logger = logging.getLogger(__name__)
+
+JOB_NAO_ENCONTRADO = "Job não encontrado."
 
 
 @require_GET
@@ -98,75 +103,15 @@ def upload(request):
 
     forcar_ocr = request.POST.get("forcar_ocr", "false").lower() in ("true", "1", "on")
 
-    files = request.FILES.getlist("files")
-    if not files:
-        return JsonResponse({"error": "Envie pelo menos um arquivo PDF."}, status=400)
-
-    total_size = 0
-    filenames = []
-    upload_files = []
-    used_filenames: set[str] = set()
-    for f in files:
-        if not f.name.lower().endswith(".pdf"):
-            return JsonResponse({"error": f'O arquivo "{f.name}" não é um PDF.'}, status=400)
-
-        header = f.read(5)
-        f.seek(0)
-        if header != b"%PDF-":
-            return JsonResponse({"error": f'O arquivo "{f.name}" não é um PDF válido.'}, status=400)
-
-        if f.size > settings.MAX_UPLOAD_SIZE:
-            size_mb = f.size / (1024 * 1024)
-            return JsonResponse(
-                {
-                    "error": (
-                        f'O arquivo "{f.name}" ({size_mb:.1f} MB) excede '
-                        f"o limite de {settings.MAX_UPLOAD_SIZE_MB} MB."
-                    )
-                },
-                status=400,
-            )
-
-        total_size += f.size
-        safe_name = _safe_pdf_filename(f.name, used_filenames)
-        filenames.append(safe_name)
-        upload_files.append((f, safe_name))
-
-    if total_size > settings.MAX_TOTAL_UPLOAD_SIZE:
-        total_mb = total_size / (1024 * 1024)
-        return JsonResponse(
-            {
-                "error": (
-                    f"O tamanho total ({total_mb:.1f} MB) excede "
-                    f"o limite de {settings.MAX_TOTAL_UPLOAD_MB} MB."
-                )
-            },
-            status=400,
-        )
-
     if not request.session.session_key:
         request.session.create()
-
     session_key = request.session.session_key
 
-    uso_ativo_mb = (
-        OCRJob.objects.filter(session_key=session_key, cleaned_up=False)
-        .exclude(status=OCRJob.Status.FAILED)
-        .aggregate(total=models.Sum("total_input_size_mb"))["total"]
-        or 0
-    )
-    projetado_mb = uso_ativo_mb + (total_size / (1024 * 1024))
-    if projetado_mb > settings.MAX_TOTAL_UPLOAD_MB:
-        return JsonResponse(
-            {
-                "error": (
-                    f"O uso acumulado desta sessão ({projetado_mb:.1f} MB) excede "
-                    f"o limite de {settings.MAX_TOTAL_UPLOAD_MB} MB. Aguarde a limpeza "
-                    "automática dos arquivos antigos ou inicie uma nova sessão."
-                )
-            },
-            status=400,
-        )
+    try:
+        filenames, upload_files, total_size = validar_pdfs(request.FILES.getlist("files"))
+        validar_uso_da_sessao(OCRJob, session_key, total_size)
+    except UploadInvalido as recusa:
+        return JsonResponse({"error": str(recusa)}, status=400)
 
     try:
         job = OCRJob.objects.create(
@@ -176,50 +121,25 @@ def upload(request):
             idioma=idioma,
             forcar_ocr=forcar_ocr,
         )
-
-        input_dir = job.input_dir
-        input_dir.mkdir(parents=True, exist_ok=True)
-
-        for f, safe_name in upload_files:
-            with open(input_dir / safe_name, "wb") as dest:
-                for chunk in f.chunks():
-                    dest.write(chunk)
-
-        # Em modo eager o processamento roda em thread separada, para a
-        # requisição HTTP voltar na hora — igual ao app `splitter`.
-        if getattr(settings, "CELERY_TASK_ALWAYS_EAGER", False):
-            import threading
-
-            from django.db import connection
-
-            task_id = f"eager-ocr-{job.pk}"
-
-            def run_async_eager():
-                try:
-                    connection.close()
-                    process_ocr_job(job.pk)
-                finally:
-                    connection.close()
-
-            thread = threading.Thread(target=run_async_eager)
-            thread.daemon = True
-            thread.start()
-        else:
-            task = process_ocr_job.delay(job.pk)
-            task_id = task.id
-
-        job.task_id = task_id
+        gravar_uploads(upload_files, job.input_dir)
+        job.task_id = _enfileirar(process_ocr_job, job.pk)
         job.save(update_fields=["task_id"])
 
+        # Só valores de origem controlada vão para o log: o rótulo do idioma sai
+        # das choices do model, não do que veio no formulário.
         logger.info(
-            f"OCRJob #{job.pk} criado: {len(filenames)} arquivo(s), "
-            f"{job.total_input_size_mb} MB, idioma={idioma}, forçar={forcar_ocr}"
+            "OCRJob #%s criado: %s arquivo(s), %s MB, idioma=%s, forçar=%s",
+            job.pk,
+            len(filenames),
+            job.total_input_size_mb,
+            job.get_idioma_display(),
+            "sim" if forcar_ocr else "não",
         )
 
         return JsonResponse(
             {
                 "job_id": job.pk,
-                "task_id": task_id,
+                "task_id": job.task_id,
                 "message": "Upload realizado com sucesso. Reconhecendo o texto...",
             },
             status=202,
@@ -228,6 +148,33 @@ def upload(request):
     except Exception as exc:
         logger.exception("Erro inesperado no upload/OCR")
         return JsonResponse({"error": f"Erro interno do servidor: {exc!s}"}, status=500)
+
+
+def _enfileirar(task, job_id: int) -> str:
+    """Manda a task para o Celery e devolve o id do trabalho.
+
+    Em modo eager o processamento roda numa thread separada, para a requisição
+    HTTP voltar na hora em vez de segurar o navegador até o fim do OCR — igual
+    ao app `splitter`.
+    """
+    if not getattr(settings, "CELERY_TASK_ALWAYS_EAGER", False):
+        return task.delay(job_id).id
+
+    import threading
+
+    from django.db import connection
+
+    def executar():
+        try:
+            connection.close()
+            task(job_id)
+        finally:
+            connection.close()
+
+    thread = threading.Thread(target=executar)
+    thread.daemon = True
+    thread.start()
+    return f"eager-ocr-{job_id}"
 
 
 @require_GET
@@ -243,10 +190,10 @@ def status(request, job_id):
     try:
         job = OCRJob.objects.get(pk=job_id)
     except OCRJob.DoesNotExist:
-        return JsonResponse({"error": "Job não encontrado."}, status=404)
+        return JsonResponse({"error": JOB_NAO_ENCONTRADO}, status=404)
 
     if job.session_key != request.session.session_key:
-        return JsonResponse({"error": "Job não encontrado."}, status=404)
+        return JsonResponse({"error": JOB_NAO_ENCONTRADO}, status=404)
 
     data = {
         "status": job.status,
@@ -285,10 +232,10 @@ def download(request, job_id, formato):
     try:
         job = OCRJob.objects.get(pk=job_id)
     except OCRJob.DoesNotExist:
-        return HttpResponseNotFound("Job não encontrado.")
+        return HttpResponseNotFound(JOB_NAO_ENCONTRADO)
 
     if job.session_key != request.session.session_key:
-        return HttpResponseNotFound("Job não encontrado.")
+        return HttpResponseNotFound(JOB_NAO_ENCONTRADO)
 
     if job.status != OCRJob.Status.COMPLETED:
         return HttpResponseBadRequest("O processamento ainda não foi concluído.")
