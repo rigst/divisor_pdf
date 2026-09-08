@@ -2,9 +2,9 @@
 set -euo pipefail
 
 # Disparado via SSH pelo usuário "deploy" (authorized_keys com command=
-# forçado — ver rigst/ci RUNBOOK.md seção 7). Roda inteiro como "deploy";
-# só o reload/restart no fim precisa de sudo (sudoers próprio de "deploy",
-# nunca o de "rod").
+# forçado — ver rigst/ci RUNBOOK.md seção 7). Roda inteiro como "deploy"; o
+# que precisa de sudo é o reload/restart no fim e o backup pré-migração, este
+# último como "rod" (sudoers próprio de "deploy", nunca o de "rod").
 
 APP_DIR=/var/www/divisor_pdf
 FETCH_URL=https://github.com/rigst/divisor_pdf.git   # HTTPS anônimo — repo público, sem credencial
@@ -59,7 +59,17 @@ main() {
   tem_migracao="$(git diff --name-only "HEAD..$sha" -- '*/migrations/*')"
 
   if [[ -n "$tem_migracao" && -n "$BACKUP_SCRIPT" ]]; then
-    "$BACKUP_SCRIPT"
+    # Como "rod", e não como "deploy": os dumps vivem em /home/rod/backups, que
+    # é 0750 do rod — de onde o rclone os manda para o Drive. Rodando como
+    # "deploy" o `mkdir -p` do backup morre em "/home/rod: Permission denied",
+    # e com `set -e` o deploy inteiro para antes do merge. Só se descobriu em
+    # 08/09/2026: o backup só roda quando o diff traz migração, e até ali
+    # nenhuma tinha entrado por CD.
+    #
+    # Depende desta linha no sudoers do deploy (visudo -f /etc/sudoers.d/deploy):
+    #   deploy ALL=(rod) NOPASSWD: /var/www/divisor_pdf/deploy/backup_postgres.sh
+    # Falhar aqui é o comportamento certo: migração sem backup não deve subir.
+    sudo -n -u rod "$BACKUP_SCRIPT"
   fi
 
   git merge --ff-only "$sha"
