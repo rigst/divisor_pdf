@@ -1,0 +1,278 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}OCR de PDFs — Transforme digitalizações em texto{% endblock %}
+
+{% block content %}
+{% include "partials/_nav.html" with ativo="ocr" %}
+
+<main class="ds-stack main-content">
+    <header class="header ds-panel-dark ds-reveal">
+        <div class="header-media" aria-hidden="true">
+            <img src="{% static 'img/hero-archive.jpg' %}" alt="" loading="eager">
+            <div class="header-grad"></div>
+        </div>
+        <div class="ds-glow" aria-hidden="true"></div>
+        <div class="ds-noise" aria-hidden="true"></div>
+        <div class="header-content">
+            <h1 class="logo-text ds-h1">Papel digitalizado <br><span class="ds-muted">vira texto pesquisável.</span></h1>
+            <p class="header-subtitle">Envie PDFs escaneados e receba de volta o mesmo documento com camada de texto — pesquisável e copiável — ou o conteúdo já extraído em Markdown, pronto para editar.</p>
+            <ul class="header-meta">
+                <li><strong>PDF ou .md</strong><span>você escolhe na hora de baixar</span></li>
+                <li><strong>≤ {{ max_upload_size_mb }} MB</strong><span>por arquivo</span></li>
+                <li><strong>Apagados em 1h</strong><span>processamento próprio</span></li>
+            </ul>
+        </div>
+    </header>
+
+    {% if not ocr_disponivel %}
+        <div class="ds-alert ds-alert--warn">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                <circle cx="12" cy="12" r="10"/>
+                <line x1="12" y1="8" x2="12" y2="12"/>
+                <line x1="12" y1="16" x2="12.01" y2="16"/>
+            </svg>
+            <div>
+                <div class="ds-alert-title">OCR indisponível no momento</div>
+                <p>O serviço de reconhecimento de texto não está ativo neste servidor. Tente novamente mais tarde — enquanto isso, a <a href="/">divisão e a compressão de PDFs</a> seguem funcionando.</p>
+            </div>
+        </div>
+    {% endif %}
+
+    <!-- Upload -->
+    <section id="upload-section" class="card card-upload ds-reveal">
+        <div class="card-header">
+            <div class="card-icon">
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                    <path d="M4 7V5a1 1 0 0 1 1-1h2"/>
+                    <path d="M17 4h2a1 1 0 0 1 1 1v2"/>
+                    <path d="M20 17v2a1 1 0 0 1-1 1h-2"/>
+                    <path d="M7 20H5a1 1 0 0 1-1-1v-2"/>
+                    <line x1="8" y1="10" x2="16" y2="10"/>
+                    <line x1="8" y1="14" x2="13" y2="14"/>
+                </svg>
+            </div>
+            <div class="card-head-text">
+                <span class="ds-kicker">Passo único</span>
+                <h2>Envie os PDFs para OCR</h2>
+            </div>
+        </div>
+
+        <form
+            id="ocr-form"
+            enctype="multipart/form-data"
+            data-max-upload-size-mb="{{ max_upload_size_mb }}"
+            data-max-total-upload-mb="{{ max_total_upload_mb }}"
+        >
+            {% csrf_token %}
+
+            <!-- Um <button> de verdade, e não uma div com role="button": o
+                 teclado, o foco e o Enter/Espaço vêm de graça, sem JS. -->
+            <button type="button" id="drop-zone" class="drop-zone" aria-label="Área de upload de arquivos PDF">
+                <div class="drop-zone-content">
+                    <div class="drop-zone-icon">
+                        <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                            <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+                            <polyline points="14 2 14 8 20 8"/>
+                            <line x1="8" y1="13" x2="16" y2="13"/>
+                            <line x1="8" y1="17" x2="13" y2="17"/>
+                        </svg>
+                    </div>
+                    <p class="drop-zone-text">
+                        <strong>Arraste seus PDFs aqui</strong>
+                        <span>ou clique para selecionar</span>
+                    </p>
+                    <p class="drop-zone-hint">
+                        Máx. {{ max_upload_size_mb }} MB por arquivo · Total {{ max_total_upload_mb }} MB
+                    </p>
+                </div>
+            </button>
+
+            <!-- Fora do drop-zone de propósito: dois controles interativos
+                 aninhados reprovam no axe (`nested-interactive`) e o leitor de
+                 tela não alcança o de dentro. Quem recebe foco é o drop-zone. -->
+            <input aria-label="Escolher arquivos PDF"
+                type="file"
+                id="file-input"
+                name="files"
+                accept=".pdf,application/pdf"
+                multiple
+                class="file-input-hidden"
+                tabindex="-1"
+                aria-hidden="true"
+            >
+
+            <div id="file-list" class="file-list" style="display: none;">
+                <div class="file-list-header">
+                    <h3>Arquivos selecionados</h3>
+                    <button type="button" id="clear-files-btn" class="btn-text" aria-label="Remover todos os arquivos">
+                        Limpar tudo
+                    </button>
+                </div>
+                <ul id="file-items" class="file-items"></ul>
+                <div class="file-list-summary">
+                    <span id="file-count">0 arquivos</span>
+                    <span id="file-total-size">0 MB</span>
+                </div>
+            </div>
+
+            <!-- Idioma do reconhecimento -->
+            <div id="lang-control" class="compress-control ocr-lang-control" style="display: none;">
+                <span class="size-label">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                        <circle cx="12" cy="12" r="10"/>
+                        <line x1="2" y1="12" x2="22" y2="12"/>
+                        <path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/>
+                    </svg>
+                    Idioma do documento
+                </span>
+                <!-- Sem role="radiogroup" de propósito: a tela de divisão usa
+                     exatamente esta marcação e mede zero violação no axe. Cada
+                     rádio já é anunciado pelo <label> que o envolve. -->
+                <div class="compress-options ocr-lang-options">
+                    <label class="compress-opt-card active">
+                        <input type="radio" name="idioma" value="por" checked class="compress-radio-hidden">
+                        <div class="compress-opt-content">
+                            <span class="compress-opt-title">Português</span>
+                            <span class="compress-opt-desc">Documentos em português do Brasil</span>
+                        </div>
+                    </label>
+                    <label class="compress-opt-card">
+                        <input type="radio" name="idioma" value="eng" class="compress-radio-hidden">
+                        <div class="compress-opt-content">
+                            <span class="compress-opt-title">Inglês</span>
+                            <span class="compress-opt-desc">Documentos em inglês</span>
+                        </div>
+                    </label>
+                    <label class="compress-opt-card">
+                        <input type="radio" name="idioma" value="por+eng" class="compress-radio-hidden">
+                        <div class="compress-opt-content">
+                            <span class="compress-opt-title">Português + Inglês</span>
+                            <span class="compress-opt-desc">Documentos mistos; um pouco mais lento</span>
+                        </div>
+                    </label>
+                </div>
+            </div>
+
+            <!-- Refazer OCR -->
+            <div id="force-control" class="action-switch-control" style="display: none;">
+                <label class="ds-switch">
+                    <input type="checkbox" id="forcar-ocr-checkbox" name="forcar_ocr">
+                    <span class="ds-switch-track"></span>
+                    <span class="switch-label-text">Refazer o OCR mesmo nas páginas que já têm texto</span>
+                </label>
+                <p class="size-hint">Deixe desligado para PDFs mistos: o texto original é preservado e só as páginas escaneadas passam pelo reconhecimento.</p>
+            </div>
+
+            <div id="time-estimate" class="time-estimate" style="display: none;">
+                <div class="time-estimate-header">
+                    <span class="time-estimate-label">Previsão</span>
+                    <span id="time-estimate-total" class="time-estimate-total">Calculando...</span>
+                </div>
+            </div>
+
+            {% if precisa_aceite %}
+                <div id="aceite-wrapper" style="display: none;">
+                    {% include "legal/_checkbox_aceite.html" with field=form_aceite.aceite_legal %}
+                </div>
+            {% endif %}
+
+            <button type="submit" id="submit-btn" class="ds-btn ds-btn--solid ds-btn--block" style="display: none;" disabled>
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                    <path d="M4 7V5a1 1 0 0 1 1-1h2"/>
+                    <path d="M17 4h2a1 1 0 0 1 1 1v2"/>
+                    <path d="M20 17v2a1 1 0 0 1-1 1h-2"/>
+                    <path d="M7 20H5a1 1 0 0 1-1-1v-2"/>
+                    <line x1="8" y1="12" x2="16" y2="12"/>
+                </svg>
+                <span>Reconhecer texto</span>
+            </button>
+        </form>
+    </section>
+
+    {% include "partials/_processing.html" with fase2="Fase 2: Reconhecendo o texto no servidor" %}
+
+    <!-- Resultado -->
+    <section id="result-section" class="card card-result" style="display: none;">
+        <div class="card-header">
+            <div class="card-icon card-icon-success">
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                    <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/>
+                    <polyline points="22 4 12 14.01 9 11.01"/>
+                </svg>
+            </div>
+            <div class="card-head-text">
+                <span class="ds-kicker">Pronto</span>
+                <h2>Texto reconhecido!</h2>
+            </div>
+        </div>
+
+        <div class="result-stats">
+            <div class="stat">
+                <span class="stat-value" id="result-files">—</span>
+                <span class="stat-label">Arquivos reconhecidos</span>
+            </div>
+            <div class="stat">
+                <span class="stat-value" id="result-chars">—</span>
+                <span class="stat-label">Caracteres extraídos</span>
+            </div>
+        </div>
+
+        <div id="result-warnings" class="ds-alert ds-alert--warn" style="display: none;">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                <circle cx="12" cy="12" r="10"/>
+                <line x1="12" y1="8" x2="12" y2="12"/>
+                <line x1="12" y1="16" x2="12.01" y2="16"/>
+            </svg>
+            <div>
+                <div class="ds-alert-title">Atenção</div>
+                <ul id="result-warnings-list" class="result-warnings-list"></ul>
+            </div>
+        </div>
+
+        <p class="size-label download-choice-label">Escolha o formato para baixar</p>
+        <div class="download-choice">
+            <a id="download-pdf-btn" href="#" class="ds-btn ds-btn--solid">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                    <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+                    <polyline points="14 2 14 8 20 8"/>
+                </svg>
+                <span>Baixar PDF pesquisável<small id="pdf-size-hint"></small></span>
+            </a>
+            <a id="download-md-btn" href="#" class="ds-btn ds-btn--ghost">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                    <path d="M4 5h16v14H4z"/>
+                    <polyline points="7 15 7 9 10 12 13 9 13 15"/>
+                    <line x1="17" y1="9" x2="17" y2="15"/>
+                </svg>
+                <span>Baixar Markdown (.md)<small id="md-size-hint"></small></span>
+            </a>
+        </div>
+
+        <button type="button" id="new-ocr-btn" class="ds-btn ds-btn--ghost ds-btn--block">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                <polyline points="1 4 1 10 7 10"/>
+                <path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10"/>
+            </svg>
+            <span>Voltar ao início</span>
+        </button>
+
+        <p class="ds-help result-note">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                <circle cx="12" cy="12" r="10"/>
+                <line x1="12" y1="8" x2="12" y2="12"/>
+                <line x1="12" y1="16" x2="12.01" y2="16"/>
+            </svg>
+            Os arquivos serão removidos automaticamente após 1 hora.
+        </p>
+    </section>
+
+    {% include "partials/_error.html" with titulo="Erro no reconhecimento" %}
+
+    {% include "partials/_footer.html" %}
+</main>
+{% endblock %}
+
+{% block extra_js %}
+<script src="{% static 'js/ocr.js' %}"></script>
+{% endblock %}

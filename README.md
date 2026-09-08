@@ -9,10 +9,15 @@
 
 Aplicacao Django para enviar PDFs, comprimir com Ghostscript, dividir em partes menores com `pypdf` e baixar o resultado como PDF unico ou ZIP. O processamento pesado roda em Celery.
 
+Tem tambem uma tela de **OCR** (`/ocr/`, app `ocr`): PDFs digitalizados passam pelo
+OCRmyPDF e voltam como PDF pesquisavel ou como texto em Markdown (`.md`). Os dois
+formatos saem do mesmo processamento; quem escolhe e o usuario, na hora de baixar.
+
 ## Requisitos
 
 - Python 3.12+
 - Ghostscript (`gs`)
+- OCRmyPDF (`ocrmypdf`) e Tesseract com os idiomas `por` e `eng`, para a tela de OCR
 - Redis para Celery em producao
 - PostgreSQL em producao
 
@@ -20,7 +25,8 @@ No Ubuntu/Debian:
 
 ```bash
 sudo apt update
-sudo apt install ghostscript redis-server postgresql
+sudo apt install ghostscript redis-server postgresql \
+    ocrmypdf tesseract-ocr tesseract-ocr-por tesseract-ocr-eng
 ```
 
 ## Ambiente local
@@ -53,6 +59,8 @@ MAX_TOTAL_UPLOAD_MB=2048
 SESSION_EXPIRY_SECONDS=3600
 CLEANUP_INTERVAL_MINUTES=15
 GHOSTSCRIPT_TIMEOUT_SECONDS=300
+OCR_TIMEOUT_SECONDS=1800
+OCR_JOBS=2
 DJANGO_SETTINGS_MODULE=config.settings.production
 ```
 
@@ -60,7 +68,7 @@ DJANGO_SETTINGS_MODULE=config.settings.production
 
 ```bash
 ./venv/bin/python manage.py check
-./venv/bin/python manage.py test splitter
+./venv/bin/python manage.py test splitter ocr
 ```
 
 ## Producao
@@ -129,6 +137,6 @@ O procedimento completo está em [docs/CONFORMIDADE.md](docs/CONFORMIDADE.md).
 
 Este projeto é distribuído sob a **GNU Affero General Public License v3.0** (ver [LICENSE](LICENSE)).
 
-A compressão de PDFs usa o [Ghostscript](https://www.ghostscript.com/) (AGPL-3.0, Artifex Software), invocado como processo externo. O código-fonte completo deste sistema está disponível em <https://github.com/rigst/divisor_pdf>.
+A compressão de PDFs usa o [Ghostscript](https://www.ghostscript.com/) (AGPL-3.0, Artifex Software); o OCR usa o [OCRmyPDF](https://ocrmypdf.readthedocs.io/) (MPL-2.0) sobre o [Tesseract](https://github.com/tesseract-ocr/tesseract) (Apache-2.0). Todos são invocados como processos externos. O código-fonte completo deste sistema está disponível em <https://github.com/rigst/divisor_pdf>.
 
 O inventário das bibliotecas de terceiros está em [docs/LICENCAS-TERCEIROS.md](docs/LICENCAS-TERCEIROS.md), regenerável com `./venv/bin/python scripts/licencas_terceiros.py`.

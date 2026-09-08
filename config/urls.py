@@ -14,5 +14,6 @@ urlpatterns = [
     path("privacidade/", legal_views.privacidade, name="privacidade"),
     path("termos/", legal_views.termos, name="termos"),
     path("legal/", include("legal.urls")),
+    path("ocr/", include("ocr.urls")),
     path("", include("splitter.urls")),
 ]

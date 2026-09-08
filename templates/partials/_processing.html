@@ -1,0 +1,52 @@
+{% comment %}
+Cartão de progresso em duas fases (envio e processamento), comum às duas telas.
+`fase2` é o rótulo da segunda barra — o que o servidor está fazendo com o
+arquivo depois que ele chega.
+{% endcomment %}
+    <!-- Processing Section -->
+    <section id="processing-section" class="card card-processing" style="display: none;">
+        <div class="card-header">
+            <div class="card-icon card-icon-processing">
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                    <line x1="12" y1="2" x2="12" y2="6"/>
+                    <line x1="12" y1="18" x2="12" y2="22"/>
+                    <line x1="4.93" y1="4.93" x2="7.76" y2="7.76"/>
+                    <line x1="16.24" y1="16.24" x2="19.07" y2="19.07"/>
+                    <line x1="2" y1="12" x2="6" y2="12"/>
+                    <line x1="18" y1="12" x2="22" y2="12"/>
+                    <line x1="4.93" y1="19.07" x2="7.76" y2="16.24"/>
+                    <line x1="16.24" y1="7.76" x2="19.07" y2="4.93"/>
+                </svg>
+            </div>
+            <div class="card-head-text">
+                <span class="ds-kicker">Em andamento</span>
+                <h2 id="processing-title">Enviando...</h2>
+            </div>
+        </div>
+
+        <!-- Fase 1: Envio dos Arquivos -->
+        <div id="upload-progress-container" class="progress-container">
+            <span class="progress-label">Fase 1: Enviando arquivos para o servidor</span>
+            <div class="ds-progress">
+                <div id="upload-progress-fill" class="ds-progress-fill upload-fill" style="width: 0%"></div>
+            </div>
+            <div class="progress-info">
+                <span id="upload-progress-text">Preparando envio...</span>
+                <span id="upload-progress-percent">0%</span>
+            </div>
+        </div>
+
+        <!-- Fase 2: Processamento no Servidor -->
+        <div id="processing-progress-container" class="progress-container" style="display: none; margin-top: var(--ds-space-6);">
+            <span class="progress-label">{{ fase2 }}</span>
+            <div class="ds-progress">
+                <div id="progress-fill" class="ds-progress-fill" style="width: 0%"></div>
+            </div>
+            <div class="progress-info">
+                <span id="progress-text">Aguardando início...</span>
+                <span id="progress-percent">0%</span>
+            </div>
+        </div>
+
+        <div id="workflow-eta" class="workflow-eta">Tempo restante total: calculando...</div>
+    </section>

@@ -1379,3 +1379,53 @@ html {
 @media (prefers-reduced-motion: reduce) {
   .confirmacao { transition: none; }
 }
+
+/* =========================================================================
+   OCR (app `ocr`)
+
+   Reaproveita os componentes da tela de divisão — cards, drop-zone, opções em
+   cartão — e acrescenta só o que muda: três idiomas em vez de quatro níveis de
+   compressão, e a escolha do formato de download no resultado.
+   ========================================================================= */
+
+.ocr-lang-options { grid-template-columns: repeat(3, 1fr); }
+.ocr-lang-control .compress-opt-card { min-height: 108px; }
+
+.download-choice-label { margin-bottom: var(--space-sm); }
+
+.download-choice {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 0.75rem;
+    margin-bottom: var(--space-md);
+}
+
+/* Os dois formatos têm o mesmo peso de escolha: o mesmo tamanho de alvo evita
+   sugerir que o Markdown é o caminho secundário. */
+.download-choice .ds-btn { width: 100%; }
+.download-choice .ds-btn span { display: flex; flex-direction: column; align-items: center; line-height: 1.25; }
+.download-choice .ds-btn small { font-size: 0.75rem; opacity: 0.85; }
+
+@media (max-width: 720px) {
+    .ocr-lang-options { grid-template-columns: 1fr; }
+    .download-choice { grid-template-columns: 1fr; }
+}
+
+/* Chamada do OCR na tela de divisão. */
+.card-ocr-cta .ocr-cta-text {
+    color: var(--text-2);
+    font-size: 0.95rem;
+    line-height: 1.6;
+    margin-bottom: var(--space-lg);
+}
+
+/* O drop-zone da tela de OCR é um <button> (teclado e foco nativos), então
+   precisa perder a aparência de botão do navegador e ocupar a largura toda. */
+button.drop-zone {
+    width: 100%;
+    font: inherit;
+    color: inherit;
+    text-align: center;
+    -webkit-appearance: none;
+    appearance: none;
+}

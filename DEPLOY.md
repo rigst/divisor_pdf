@@ -17,14 +17,22 @@ sudo apt update
 sudo apt install -y \
     python3-venv python3-dev build-essential \
     ghostscript redis-server postgresql \
+    ocrmypdf tesseract-ocr tesseract-ocr-por tesseract-ocr-eng \
     nginx certbot python3-certbot-nginx git
 sudo systemctl enable --now redis-server postgresql nginx
 ```
 
-Confira o Ghostscript (a compressão depende dele):
+Confira o Ghostscript (a compressão depende dele) e o OCRmyPDF (o OCR depende
+dele e dos idiomas do Tesseract):
 ```bash
 gs --version
+ocrmypdf --version
+tesseract --list-langs   # precisa listar por e eng
 ```
+
+Sem o `ocrmypdf` no PATH a aplicação continua no ar: a tela de OCR avisa que o
+recurso está indisponível e o upload responde 503, em vez de aceitar o arquivo
+e falhar depois.
 
 ---
 
@@ -220,6 +228,9 @@ cd /home/rodrigostolben/Projetos/divisor_pdf
 | 502 Bad Gateway | Gunicorn fora / socket inacessível | `systemctl status divisor_pdf`; permissões do `home` (passo 6) |
 | 403 nos estáticos | Permissão de leitura / `www-data` não alcança o `home` | passo 6 (`chmod o+x`); confira o `alias` no nginx |
 | Compressão não reduz / falha | Ghostscript ausente | `gs --version`; reinstale o pacote |
+| Tela de OCR diz "indisponível" / upload 503 | OCRmyPDF ausente do PATH do serviço | `ocrmypdf --version`; instale o pacote ou aponte `OCRMYPDF_BINARY` |
+| OCR falha só em um idioma | pacote de idioma do Tesseract ausente | `tesseract --list-langs`; instale `tesseract-ocr-por` / `-eng` |
+| OCR estoura o tempo limite | documento longo ou digitalização pesada | suba `OCR_TIMEOUT_SECONDS` ou divida o PDF antes |
 | Upload trava ou erro 413 | `client_max_body_size` menor que o upload | alinhe com `MAX_TOTAL_UPLOAD_MB` no nginx |
 | Job fica "processando" pra sempre | Celery parado / Redis fora | `systemctl status divisor_celery redis-server` |
 | `RuntimeError: ... obrigatória em produção` | `.env` incompleto | preencha `SECRET_KEY`, `ALLOWED_HOSTS`, `DB_*` |

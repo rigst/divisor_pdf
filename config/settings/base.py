@@ -40,6 +40,7 @@ INSTALLED_APPS = [
     "django.contrib.staticfiles",
     # Apps do projeto
     "splitter",
+    "ocr",
     "legal",
 ]
 
@@ -164,6 +165,22 @@ FILE_UPLOAD_TEMP_DIR = os.getenv("FILE_UPLOAD_TEMP_DIR", str(BASE_DIR / "media" 
 # Tempo máximo para cada chamada do Ghostscript
 GHOSTSCRIPT_TIMEOUT_SECONDS = int(os.getenv("GHOSTSCRIPT_TIMEOUT_SECONDS", "300"))
 
+# ==============================================================================
+# OCR Configuration
+# ==============================================================================
+
+# Tempo máximo de cada chamada do OCRmyPDF. Bem maior que o do Ghostscript:
+# reconhecer texto custa alguns segundos por página, e um documento de duzentas
+# páginas passa fácil dos cinco minutos.
+OCR_TIMEOUT_SECONDS = int(os.getenv("OCR_TIMEOUT_SECONDS", "1800"))
+
+# Páginas reconhecidas em paralelo por arquivo. Acima do número de núcleos só
+# aumenta a disputa por CPU; o padrão conservador serve a VPS pequena.
+OCR_JOBS = int(os.getenv("OCR_JOBS", "2"))
+
+# Caminho do binário do OCRmyPDF, quando ele não está no PATH do serviço.
+OCRMYPDF_BINARY = os.getenv("OCRMYPDF_BINARY", "ocrmypdf")
+
 # Limite de divisão informado pelo usuário usa MB decimal, igual ao exibido por
 # gerenciadores de arquivo comuns: 2 MB = 2.000.000 bytes.
 PDF_SPLIT_BYTES_PER_MB = 1000 * 1000
@@ -193,6 +210,12 @@ CELERY_TASK_TRACK_STARTED = True
 CELERY_BEAT_SCHEDULE = {
     "cleanup-expired-sessions": {
         "task": "splitter.tasks.cleanup_expired_sessions",
+        "schedule": int(os.getenv("CLEANUP_INTERVAL_MINUTES", "15")) * 60,
+    },
+    # A limpeza do divisor varre só os SplitJob; sem esta os diretórios
+    # `ocr_input`/`ocr_output` ficariam em disco para sempre.
+    "cleanup-expired-ocr-jobs": {
+        "task": "ocr.tasks.cleanup_expired_ocr_jobs",
         "schedule": int(os.getenv("CLEANUP_INTERVAL_MINUTES", "15")) * 60,
     },
 }

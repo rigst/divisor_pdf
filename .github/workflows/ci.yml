@@ -30,7 +30,7 @@ jobs:
     with:
       python-version: "3.12"
       django-settings-module: config.settings.production
-      source-paths: "config legal splitter"
+      source-paths: "config core legal splitter ocr"
 
       # Os testes rodam nos settings de desenvolvimento (SQLite), então o job
       # não precisa de Postgres.
@@ -77,6 +77,7 @@ jobs:
       a11y-setup-command: python manage.py importar_documentos_legais --publicar
       a11y-paths: |
         /
+        /ocr/
         /termos/
         /privacidade/
         /legal/aceite/
