@@ -130,9 +130,7 @@ class OCRProcessor:
             logger.exception(f"Falha no OCRmyPDF (código {e.returncode}): {bruto}")
             raise RuntimeError(detalhe or f"Falha no OCR (código {e.returncode}).") from e
         except subprocess.TimeoutExpired as e:
-            logger.exception(
-                f"OCRmyPDF excedeu o timeout de {settings.OCR_TIMEOUT_SECONDS}s"
-            )
+            logger.exception(f"OCRmyPDF excedeu o timeout de {settings.OCR_TIMEOUT_SECONDS}s")
             raise RuntimeError(
                 f"O OCR excedeu o tempo limite de {settings.OCR_TIMEOUT_SECONDS}s. "
                 "Tente enviar um arquivo menor ou dividi-lo antes."
