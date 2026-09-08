@@ -1,0 +1,558 @@
+"""Testes do app OCR.
+
+O binário do OCRmyPDF nunca é chamado de verdade aqui: a suíte roda no CI, que
+não tem Tesseract instalado, e um teste que depende de OCR real mede a máquina,
+não o código. O que se testa é o contrato com ele — a linha de comando montada,
+o tratamento de cada código de saída e o que o resto do sistema faz com o
+resultado.
+"""
+
+import io
+import shutil
+import subprocess
+import tempfile
+from pathlib import Path
+from unittest.mock import patch
+
+from django.core.files.uploadedfile import SimpleUploadedFile
+from django.test import TestCase, override_settings
+from django.urls import reverse
+from django.utils import timezone
+from pypdf import PdfWriter
+
+from legal.models import DocumentoLegal, TipoDocumento
+
+from .models import OCRJob
+from .services import OCRProcessor, extrair_paginas, ocr_disponivel, texto_para_markdown
+from .tasks import cleanup_expired_ocr_jobs, process_ocr_job
+
+TEMP_MEDIA_ROOT = tempfile.mkdtemp(prefix="divisor_pdf_ocr_test_media_")
+
+
+def pdf_valido(paginas=2):
+    """Bytes de um PDF válido e vazio, do tamanho pedido."""
+    writer = PdfWriter()
+    for _ in range(paginas):
+        writer.add_blank_page(width=612, height=792)
+    buffer = io.BytesIO()
+    writer.write(buffer)
+    return buffer.getvalue()
+
+
+def upload_pdf(nome="documento.pdf", paginas=1):
+    return SimpleUploadedFile(nome, pdf_valido(paginas), content_type="application/pdf")
+
+
+@override_settings(MEDIA_ROOT=TEMP_MEDIA_ROOT)
+class ServicosOCRTestCase(TestCase):
+    """A linha de comando do OCRmyPDF e a conversão do texto em Markdown."""
+
+    def setUp(self):
+        self.dir = Path(TEMP_MEDIA_ROOT) / "servicos"
+        self.dir.mkdir(parents=True, exist_ok=True)
+        self.entrada = self.dir / "entrada.pdf"
+        self.entrada.write_bytes(pdf_valido(2))
+        self.saida = self.dir / "saida.pdf"
+
+    def tearDown(self):
+        shutil.rmtree(TEMP_MEDIA_ROOT, ignore_errors=True)
+
+    def test_comando_padrao_preserva_texto_existente(self):
+        cmd = OCRProcessor(idioma="por").montar_comando(self.entrada, self.saida)
+
+        self.assertIn("--skip-text", cmd)
+        self.assertNotIn("--force-ocr", cmd)
+        self.assertEqual(cmd[cmd.index("--language") + 1], "por")
+        self.assertEqual(cmd[-2:], [str(self.entrada), str(self.saida)])
+
+    def test_comando_com_forcar_refaz_o_ocr(self):
+        cmd = OCRProcessor(idioma="por+eng", forcar=True).montar_comando(self.entrada, self.saida)
+
+        self.assertIn("--force-ocr", cmd)
+        self.assertNotIn("--skip-text", cmd)
+        self.assertEqual(cmd[cmd.index("--language") + 1], "por+eng")
+
+    def test_run_gera_o_pdf_de_saida(self):
+        def fake_run(cmd, **kwargs):
+            Path(cmd[-1]).write_bytes(pdf_valido(2))
+            return subprocess.CompletedProcess(cmd, 0)
+
+        with (
+            patch("ocr.services.shutil.which", return_value="/usr/bin/ocrmypdf"),
+            patch("ocr.services.subprocess.run", side_effect=fake_run),
+        ):
+            self.assertTrue(OCRProcessor().run(self.entrada, self.saida))
+
+        self.assertTrue(self.saida.exists())
+
+    def test_run_falha_quando_a_entrada_nao_existe(self):
+        with self.assertRaises(FileNotFoundError):
+            OCRProcessor().run(self.dir / "nao-existe.pdf", self.saida)
+
+    def test_run_falha_quando_o_ocrmypdf_nao_esta_instalado(self):
+        with (
+            patch("ocr.services.shutil.which", return_value=None),
+            self.assertRaises(RuntimeError) as ctx,
+        ):
+            OCRProcessor().run(self.entrada, self.saida)
+
+        self.assertIn("não está disponível", str(ctx.exception))
+
+    def test_run_traduz_o_codigo_de_saida_em_mensagem_util(self):
+        # Código 6 é "o PDF já tem texto": o usuário resolve isso marcando a
+        # opção de refazer, e a mensagem precisa dizer exatamente isso.
+        erro = subprocess.CalledProcessError(6, "ocrmypdf", stderr="PriorOcrFoundError")
+
+        with (
+            patch("ocr.services.shutil.which", return_value="/usr/bin/ocrmypdf"),
+            patch("ocr.services.subprocess.run", side_effect=erro),
+            self.assertRaises(RuntimeError) as ctx,
+        ):
+            OCRProcessor().run(self.entrada, self.saida)
+
+        self.assertIn("refazer OCR", str(ctx.exception))
+
+    def test_run_avisa_quando_estoura_o_tempo_limite(self):
+        with (
+            patch("ocr.services.shutil.which", return_value="/usr/bin/ocrmypdf"),
+            patch(
+                "ocr.services.subprocess.run",
+                side_effect=subprocess.TimeoutExpired("ocrmypdf", 1800),
+            ),
+            self.assertRaises(RuntimeError) as ctx,
+        ):
+            OCRProcessor().run(self.entrada, self.saida)
+
+        self.assertIn("tempo limite", str(ctx.exception))
+
+    def test_run_falha_quando_a_saida_sai_vazia(self):
+        with (
+            patch("ocr.services.shutil.which", return_value="/usr/bin/ocrmypdf"),
+            patch(
+                "ocr.services.subprocess.run",
+                return_value=subprocess.CompletedProcess(["ocrmypdf"], 0),
+            ),
+            self.assertRaises(RuntimeError) as ctx,
+        ):
+            OCRProcessor().run(self.entrada, self.saida)
+
+        self.assertIn("não gerou o PDF", str(ctx.exception))
+
+    def test_ocr_disponivel_reflete_o_path(self):
+        with patch("ocr.services.shutil.which", return_value="/usr/bin/ocrmypdf"):
+            self.assertTrue(ocr_disponivel())
+        with patch("ocr.services.shutil.which", return_value=None):
+            self.assertFalse(ocr_disponivel())
+
+    def test_extrair_paginas_devolve_uma_entrada_por_pagina(self):
+        paginas = extrair_paginas(self.entrada)
+
+        self.assertEqual(len(paginas), 2)
+
+    def test_markdown_marca_titulo_e_paginas(self):
+        md = texto_para_markdown(["Primeira linha", "Segunda página"], "contrato")
+
+        self.assertTrue(md.startswith("# contrato\n"))
+        self.assertIn("## Página 1", md)
+        self.assertIn("## Página 2", md)
+        self.assertIn("Segunda página", md)
+
+    def test_markdown_sinaliza_pagina_sem_texto(self):
+        md = texto_para_markdown(["   ", ""], "digitalizado")
+
+        self.assertEqual(md.count("*(Nenhum texto reconhecido nesta página.)*"), 2)
+
+    def test_markdown_converte_marcadores_de_lista(self):
+        md = texto_para_markdown(["• primeiro\n▪ segundo"], "lista")
+
+        self.assertIn("- primeiro", md)
+        self.assertIn("- segundo", md)
+
+    def test_markdown_colapsa_linhas_em_branco_repetidas(self):
+        md = texto_para_markdown(["um\n\n\n\n\ndois"], "espacos")
+
+        self.assertNotIn("\n\n\n", md)
+        self.assertIn("um", md)
+        self.assertIn("dois", md)
+
+
+@override_settings(MEDIA_ROOT=TEMP_MEDIA_ROOT)
+class ModeloOCRJobTestCase(TestCase):
+    def tearDown(self):
+        shutil.rmtree(TEMP_MEDIA_ROOT, ignore_errors=True)
+
+    def test_str_resume_os_arquivos(self):
+        job = OCRJob.objects.create(
+            session_key="abc", original_filenames=["a.pdf", "b.pdf", "c.pdf", "d.pdf"]
+        )
+
+        self.assertIn("(+1)", str(job))
+        self.assertIn("pending", str(job))
+
+    def test_diretorios_nao_colidem_com_os_do_divisor(self):
+        job = OCRJob.objects.create(session_key="abc", original_filenames=["a.pdf"])
+
+        self.assertIn("ocr_input", str(job.input_dir))
+        self.assertIn("ocr_output", str(job.output_dir))
+
+    def test_caminho_do_formato(self):
+        job = OCRJob.objects.create(
+            session_key="abc", output_pdf_path="/tmp/a.pdf", output_md_path="/tmp/a.md"
+        )
+
+        self.assertEqual(job.caminho_do_formato("pdf"), "/tmp/a.pdf")
+        self.assertEqual(job.caminho_do_formato("md"), "/tmp/a.md")
+
+
+@override_settings(MEDIA_ROOT=TEMP_MEDIA_ROOT)
+class TaskOCRTestCase(TestCase):
+    """O fluxo completo da task, com o OCRmyPDF trocado por um dublê."""
+
+    def tearDown(self):
+        shutil.rmtree(TEMP_MEDIA_ROOT, ignore_errors=True)
+
+    def _criar_job(self, nomes=("documento.pdf",)):
+        job = OCRJob.objects.create(
+            session_key="sessao-teste",
+            original_filenames=list(nomes),
+            total_input_size_mb=0.1,
+        )
+        job.input_dir.mkdir(parents=True, exist_ok=True)
+        for nome in nomes:
+            (job.input_dir / nome).write_bytes(pdf_valido(2))
+        return job
+
+    @staticmethod
+    def _ocr_falso(_self, input_path, output_path):
+        Path(output_path).write_bytes(pdf_valido(2))
+        return True
+
+    def test_job_com_um_arquivo_entrega_pdf_e_md_direto(self):
+        job = self._criar_job()
+
+        with (
+            patch.object(OCRProcessor, "run", self._ocr_falso),
+            patch("ocr.services.extrair_paginas", return_value=["Texto reconhecido", ""]),
+        ):
+            process_ocr_job(job.pk)
+
+        job.refresh_from_db()
+        self.assertEqual(job.status, OCRJob.Status.COMPLETED)
+        self.assertEqual(job.progress, 100)
+        self.assertEqual(job.total_output_files, 1)
+        self.assertTrue(job.output_pdf_path.endswith("_ocr.pdf"))
+        self.assertTrue(job.output_md_path.endswith("_ocr.md"))
+        self.assertIn("Texto reconhecido", Path(job.output_md_path).read_text(encoding="utf-8"))
+        # Os originais saem do disco assim que o resultado está pronto.
+        self.assertFalse(job.input_dir.exists())
+
+    def test_job_com_varios_arquivos_entrega_um_zip_por_formato(self):
+        job = self._criar_job(nomes=("a.pdf", "b.pdf"))
+
+        with (
+            patch.object(OCRProcessor, "run", self._ocr_falso),
+            patch("ocr.services.extrair_paginas", return_value=["texto"]),
+        ):
+            process_ocr_job(job.pk)
+
+        job.refresh_from_db()
+        self.assertEqual(job.status, OCRJob.Status.COMPLETED)
+        self.assertEqual(job.total_output_files, 2)
+        self.assertTrue(job.output_pdf_path.endswith("resultado_ocr_pdf.zip"))
+        self.assertTrue(job.output_md_path.endswith("resultado_ocr_md.zip"))
+        self.assertTrue(Path(job.output_pdf_path).exists())
+        self.assertTrue(Path(job.output_md_path).exists())
+
+    def test_arquivo_problematico_vira_aviso_sem_derrubar_os_outros(self):
+        job = self._criar_job(nomes=("a.pdf", "b.pdf"))
+
+        def run_alternado(_self, input_path, output_path):
+            if Path(input_path).name == "a.pdf":
+                raise RuntimeError("O PDF está protegido por senha.")
+            Path(output_path).write_bytes(pdf_valido(1))
+            return True
+
+        with (
+            patch.object(OCRProcessor, "run", run_alternado),
+            patch("ocr.services.extrair_paginas", return_value=["texto"]),
+        ):
+            process_ocr_job(job.pk)
+
+        job.refresh_from_db()
+        self.assertEqual(job.status, OCRJob.Status.COMPLETED)
+        self.assertEqual(job.total_output_files, 1)
+        self.assertTrue(any("a.pdf" in aviso for aviso in job.processing_warnings))
+
+    def test_pagina_sem_texto_gera_aviso(self):
+        job = self._criar_job()
+
+        with (
+            patch.object(OCRProcessor, "run", self._ocr_falso),
+            patch("ocr.services.extrair_paginas", return_value=["", "  "]),
+        ):
+            process_ocr_job(job.pk)
+
+        job.refresh_from_db()
+        self.assertEqual(job.total_caracteres, 0)
+        self.assertTrue(any("Nenhum texto" in aviso for aviso in job.processing_warnings))
+
+    def test_falha_em_todos_os_arquivos_marca_o_job_como_falho(self):
+        job = self._criar_job()
+
+        def run_sempre_falha(_self, input_path, output_path):
+            raise RuntimeError("Falha no OCR (código 15).")
+
+        with patch.object(OCRProcessor, "run", run_sempre_falha):
+            process_ocr_job(job.pk)
+
+        job.refresh_from_db()
+        self.assertEqual(job.status, OCRJob.Status.FAILED)
+        self.assertIn("Nenhum arquivo pôde ser reconhecido", job.error_message)
+
+    def test_job_sem_arquivos_falha_com_mensagem_clara(self):
+        job = OCRJob.objects.create(session_key="sessao-teste", original_filenames=[])
+        job.input_dir.mkdir(parents=True, exist_ok=True)
+
+        process_ocr_job(job.pk)
+
+        job.refresh_from_db()
+        self.assertEqual(job.status, OCRJob.Status.FAILED)
+
+    def test_job_inexistente_nao_explode(self):
+        # A task pode chegar depois da limpeza; ela apenas registra e sai.
+        self.assertIsNone(process_ocr_job(999999))
+
+    def test_limpeza_remove_os_diretorios_expirados(self):
+        job = self._criar_job()
+        job.output_dir.mkdir(parents=True, exist_ok=True)
+        (job.output_dir / "saida.pdf").write_bytes(b"%PDF-")
+        job.status = OCRJob.Status.COMPLETED
+        job.save(update_fields=["status"])
+        OCRJob.objects.filter(pk=job.pk).update(
+            created_at=timezone.now() - timezone.timedelta(seconds=7200)
+        )
+
+        cleanup_expired_ocr_jobs()
+
+        job.refresh_from_db()
+        self.assertTrue(job.cleaned_up)
+        self.assertFalse(job.output_dir.exists())
+        self.assertFalse(job.input_dir.exists())
+
+    def test_limpeza_preserva_job_recente(self):
+        job = self._criar_job()
+        job.status = OCRJob.Status.COMPLETED
+        job.save(update_fields=["status"])
+
+        cleanup_expired_ocr_jobs()
+
+        job.refresh_from_db()
+        self.assertFalse(job.cleaned_up)
+        self.assertTrue(job.input_dir.exists())
+
+
+@override_settings(MEDIA_ROOT=TEMP_MEDIA_ROOT)
+class ViewsOCRTestCase(TestCase):
+    """Upload, status e download, com o OCR sempre disponível salvo onde dito."""
+
+    def setUp(self):
+        self.upload_url = reverse("ocr:upload")
+        self.patcher = patch("ocr.services.shutil.which", return_value="/usr/bin/ocrmypdf")
+        self.patcher.start()
+        self.addCleanup(self.patcher.stop)
+        # A task real chamaria o OCRmyPDF; aqui basta saber que foi enfileirada.
+        self.task_patcher = patch("ocr.tasks.process_ocr_job")
+        self.task_mock = self.task_patcher.start()
+        self.addCleanup(self.task_patcher.stop)
+
+    def tearDown(self):
+        shutil.rmtree(TEMP_MEDIA_ROOT, ignore_errors=True)
+
+    def test_pagina_do_ocr_responde(self):
+        response = self.client.get(reverse("ocr:index"))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertTemplateUsed(response, "ocr/index.html")
+        self.assertContains(response, "Idioma do documento")
+
+    def test_pagina_do_divisor_leva_ao_ocr(self):
+        response = self.client.get("/")
+
+        self.assertContains(response, reverse("ocr:index"))
+
+    def test_upload_cria_o_job_e_devolve_202(self):
+        response = self.client.post(
+            self.upload_url, {"files": [upload_pdf()], "idioma": "por+eng", "forcar_ocr": "true"}
+        )
+
+        self.assertEqual(response.status_code, 202)
+        job = OCRJob.objects.get(pk=response.json()["job_id"])
+        self.assertEqual(job.idioma, "por+eng")
+        self.assertTrue(job.forcar_ocr)
+        self.assertEqual(job.original_filenames, ["documento.pdf"])
+        self.assertTrue((job.input_dir / "documento.pdf").exists())
+
+    def test_upload_sem_arquivos(self):
+        response = self.client.post(self.upload_url, {"idioma": "por"})
+
+        self.assertEqual(response.status_code, 400)
+        self.assertIn("pelo menos um arquivo", response.json()["error"])
+
+    def test_upload_recusa_extensao_diferente_de_pdf(self):
+        arquivo = SimpleUploadedFile("nota.txt", b"%PDF-nao", content_type="text/plain")
+
+        response = self.client.post(self.upload_url, {"files": [arquivo], "idioma": "por"})
+
+        self.assertEqual(response.status_code, 400)
+
+    def test_upload_recusa_arquivo_que_so_tem_nome_de_pdf(self):
+        arquivo = SimpleUploadedFile("falso.pdf", b"nao sou um pdf", content_type="application/pdf")
+
+        response = self.client.post(self.upload_url, {"files": [arquivo], "idioma": "por"})
+
+        self.assertEqual(response.status_code, 400)
+        self.assertIn("não é um PDF válido", response.json()["error"])
+
+    def test_upload_recusa_idioma_desconhecido(self):
+        response = self.client.post(self.upload_url, {"files": [upload_pdf()], "idioma": "klingon"})
+
+        self.assertEqual(response.status_code, 400)
+        self.assertIn("Idioma inválido", response.json()["error"])
+
+    @override_settings(MAX_UPLOAD_SIZE=10, MAX_UPLOAD_SIZE_MB=0.00001)
+    def test_upload_recusa_arquivo_acima_do_limite(self):
+        response = self.client.post(self.upload_url, {"files": [upload_pdf()], "idioma": "por"})
+
+        self.assertEqual(response.status_code, 400)
+        self.assertIn("excede", response.json()["error"])
+
+    def test_upload_responde_503_quando_o_ocr_nao_esta_instalado(self):
+        with patch("ocr.services.shutil.which", return_value=None):
+            response = self.client.post(self.upload_url, {"files": [upload_pdf()], "idioma": "por"})
+
+        self.assertEqual(response.status_code, 503)
+        self.assertEqual(OCRJob.objects.count(), 0)
+
+    def test_upload_exige_aceite_quando_ha_documento_vigente(self):
+        DocumentoLegal.objects.create(
+            tipo=TipoDocumento.TERMOS, versao="1.0", titulo="Termos", corpo_md="# Termos"
+        ).publicar()
+
+        response = self.client.post(self.upload_url, {"files": [upload_pdf()], "idioma": "por"})
+
+        self.assertEqual(response.status_code, 400)
+        self.assertIn("Termos de Uso", response.json()["error"])
+        self.assertEqual(OCRJob.objects.count(), 0)
+
+    def test_upload_registra_o_aceite_enviado_no_formulario(self):
+        DocumentoLegal.objects.create(
+            tipo=TipoDocumento.TERMOS, versao="1.0", titulo="Termos", corpo_md="# Termos"
+        ).publicar()
+
+        response = self.client.post(
+            self.upload_url,
+            {"files": [upload_pdf()], "idioma": "por", "aceite_legal": "on"},
+        )
+
+        self.assertEqual(response.status_code, 202)
+
+    def _job_concluido(self):
+        """Cria um job já concluído, com os dois formatos em disco."""
+        self.client.post(self.upload_url, {"files": [upload_pdf()], "idioma": "por"})
+        job = OCRJob.objects.get()
+        job.output_dir.mkdir(parents=True, exist_ok=True)
+        pdf = job.output_dir / "documento_ocr.pdf"
+        md = job.output_dir / "documento_ocr.md"
+        pdf.write_bytes(pdf_valido(1))
+        md.write_text("# documento\n", encoding="utf-8")
+        job.status = OCRJob.Status.COMPLETED
+        job.progress = 100
+        job.total_output_files = 1
+        job.total_caracteres = 42
+        job.output_pdf_path = str(pdf)
+        job.output_md_path = str(md)
+        job.output_pdf_size_mb = 0.01
+        job.output_md_size_mb = 0.0
+        job.save()
+        return job
+
+    def test_status_traz_as_urls_dos_dois_formatos(self):
+        job = self._job_concluido()
+
+        dados = self.client.get(reverse("ocr:status", args=[job.pk])).json()
+
+        self.assertEqual(dados["status"], "completed")
+        self.assertEqual(dados["total_caracteres"], 42)
+        self.assertEqual(dados["download_urls"]["pdf"], f"/ocr/api/download/{job.pk}/pdf/")
+        self.assertEqual(dados["download_urls"]["md"], f"/ocr/api/download/{job.pk}/md/")
+
+    def test_status_de_job_de_outra_sessao_da_404(self):
+        job = self._job_concluido()
+        self.client.cookies.clear()
+
+        response = self.client.get(reverse("ocr:status", args=[job.pk]))
+
+        self.assertEqual(response.status_code, 404)
+
+    def test_status_de_job_inexistente_da_404(self):
+        self.assertEqual(self.client.get(reverse("ocr:status", args=[999])).status_code, 404)
+
+    def test_status_de_job_falho_traz_a_mensagem(self):
+        self.client.post(self.upload_url, {"files": [upload_pdf()], "idioma": "por"})
+        job = OCRJob.objects.get()
+        job.status = OCRJob.Status.FAILED
+        job.error_message = "O PDF está protegido por senha."
+        job.save()
+
+        dados = self.client.get(reverse("ocr:status", args=[job.pk])).json()
+
+        self.assertEqual(dados["error_message"], "O PDF está protegido por senha.")
+
+    def test_download_do_pdf(self):
+        job = self._job_concluido()
+
+        response = self.client.get(reverse("ocr:download", args=[job.pk, "pdf"]))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response["Content-Type"], "application/pdf")
+        self.assertIn("documento_ocr.pdf", response["Content-Disposition"])
+
+    def test_download_do_markdown(self):
+        job = self._job_concluido()
+
+        response = self.client.get(reverse("ocr:download", args=[job.pk, "md"]))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertIn("text/markdown", response["Content-Type"])
+
+    def test_download_recusa_formato_desconhecido(self):
+        job = self._job_concluido()
+
+        response = self.client.get(reverse("ocr:download", args=[job.pk, "docx"]))
+
+        self.assertEqual(response.status_code, 400)
+
+    def test_download_antes_de_concluir(self):
+        self.client.post(self.upload_url, {"files": [upload_pdf()], "idioma": "por"})
+        job = OCRJob.objects.get()
+
+        response = self.client.get(reverse("ocr:download", args=[job.pk, "pdf"]))
+
+        self.assertEqual(response.status_code, 400)
+
+    def test_download_apos_a_limpeza_explica_o_sumico(self):
+        job = self._job_concluido()
+        Path(job.output_pdf_path).unlink()
+
+        response = self.client.get(reverse("ocr:download", args=[job.pk, "pdf"]))
+
+        self.assertEqual(response.status_code, 404)
+        self.assertIn("removido", response.content.decode())
+
+    def test_download_de_job_de_outra_sessao_da_404(self):
+        job = self._job_concluido()
+        self.client.cookies.clear()
+
+        response = self.client.get(reverse("ocr:download", args=[job.pk, "pdf"]))
+
+        self.assertEqual(response.status_code, 404)
