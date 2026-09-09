@@ -25,6 +25,8 @@ from legal.models import DocumentoLegal, TipoDocumento
 from .models import OCRJob
 from .services import (
     OCRProcessor,
+    _imagens_da_pagina,
+    _reamostrar_com_ghostscript,
     extrair_paginas,
     ocr_disponivel,
     texto_esparso,
@@ -272,11 +274,119 @@ class ServicosOCRTestCase(TestCase):
 
         self.assertIn("não gerou o PDF", str(ctx.exception))
 
+    def test_run_desiste_quando_a_passada_forcada_tambem_e_recusada(self):
+        erro = subprocess.CalledProcessError(6, "ocrmypdf", stderr="PriorOcrFoundError")
+
+        with (
+            patch("ocr.services.shutil.which", return_value="/usr/bin/ocrmypdf"),
+            patch("ocr.services.subprocess.run", side_effect=erro) as run,
+            self.assertRaises(RuntimeError) as ctx,
+        ):
+            OCRProcessor().run(self.entrada, self.saida)
+
+        self.assertEqual(run.call_count, 2)
+        self.assertIn("refazer OCR", str(ctx.exception))
+
+    def test_run_mantem_o_primeiro_resultado_se_a_passada_forcada_falha(self):
+        chamadas = []
+
+        def fake_run(cmd, **kwargs):
+            chamadas.append(cmd)
+            if len(chamadas) == 1:
+                Path(cmd[-1]).write_bytes(pdf_com_imagem(2))
+                return subprocess.CompletedProcess(cmd, 0)
+            raise subprocess.CalledProcessError(9, "ocrmypdf", stderr="EncryptedPdfError")
+
+        with (
+            patch("ocr.services.shutil.which", return_value="/usr/bin/ocrmypdf"),
+            patch("ocr.services.subprocess.run", side_effect=fake_run),
+            patch("ocr.services._reamostrar_com_ghostscript") as reamostrar,
+        ):
+            self.assertTrue(OCRProcessor().run(self.entrada, self.saida))
+
+        self.assertEqual(len(chamadas), 2)
+        self.assertEqual(len(PdfReader(str(self.saida)).pages), 2)
+        reamostrar.assert_not_called()
+
+    def test_run_mantem_o_primeiro_resultado_se_a_passada_forcada_sai_vazia(self):
+        chamadas = []
+
+        def fake_run(cmd, **kwargs):
+            chamadas.append(cmd)
+            if len(chamadas) == 1:
+                Path(cmd[-1]).write_bytes(pdf_com_imagem(2))
+            else:
+                Path(cmd[-1]).write_bytes(b"")
+            return subprocess.CompletedProcess(cmd, 0)
+
+        with (
+            patch("ocr.services.shutil.which", return_value="/usr/bin/ocrmypdf"),
+            patch("ocr.services.subprocess.run", side_effect=fake_run),
+            patch("ocr.services._reamostrar_com_ghostscript"),
+        ):
+            self.assertTrue(OCRProcessor().run(self.entrada, self.saida))
+
+        self.assertEqual(len(PdfReader(str(self.saida)).pages), 2)
+        self.assertEqual(list(self.dir.glob("*_forcado.pdf")), [])
+
     def test_ocr_disponivel_reflete_o_path(self):
         with patch("ocr.services.shutil.which", return_value="/usr/bin/ocrmypdf"):
             self.assertTrue(ocr_disponivel())
         with patch("ocr.services.shutil.which", return_value=None):
             self.assertFalse(ocr_disponivel())
+
+    def test_imagens_da_pagina_tolera_estrutura_fora_do_padrao(self):
+        # Página sem /Resources e página cujo dicionário explode ao ser lido:
+        # nos dois casos o diagnóstico segue, apenas sem contar imagem.
+        self.assertEqual(_imagens_da_pagina({}), 0)
+
+        class PaginaQuebrada:
+            def get(self, _chave):
+                raise ValueError("dicionário inválido")
+
+        self.assertEqual(_imagens_da_pagina(PaginaQuebrada()), 0)
+
+    def test_run_avisa_quando_nao_consegue_invocar_o_binario(self):
+        with (
+            patch("ocr.services.shutil.which", return_value="/usr/bin/ocrmypdf"),
+            patch("ocr.services.subprocess.run", side_effect=OSError("Permissão negada")),
+            self.assertRaises(RuntimeError) as ctx,
+        ):
+            OCRProcessor().run(self.entrada, self.saida)
+
+        self.assertIn("Erro ao invocar o OCR", str(ctx.exception))
+
+    def test_texto_esparso_e_falso_em_pdf_sem_pagina_nenhuma(self):
+        vazio = self.dir / "sem_paginas.pdf"
+        vazio.write_bytes(pdf_valido(0))
+
+        self.assertFalse(texto_esparso(vazio))
+
+    def test_texto_esparso_e_falso_quando_o_pdf_nao_abre(self):
+        quebrado = self.dir / "quebrado.pdf"
+        quebrado.write_bytes(b"nao sou um pdf")
+
+        # Sem conseguir ler, não há diagnóstico: refazer o OCR às cegas só
+        # gastaria o dobro do tempo pelo mesmo resultado.
+        self.assertFalse(texto_esparso(quebrado))
+
+    def test_texto_esparso_conta_pagina_que_nao_deixa_extrair_texto(self):
+        class PaginaIlegivel:
+            def extract_text(self):
+                raise ValueError("página ilegível")
+
+            def get(self, chave):
+                return None
+
+        class LeitorFalso:
+            def __init__(self):
+                self.pages = [PaginaIlegivel()]
+
+        with (
+            patch("pypdf.PdfReader", return_value=LeitorFalso()),
+            patch("ocr.services._imagens_da_pagina", return_value=1),
+        ):
+            self.assertTrue(texto_esparso(self.entrada))
 
     def test_extrair_paginas_devolve_uma_entrada_por_pagina(self):
         paginas = extrair_paginas(self.entrada)
@@ -690,3 +800,92 @@ class ViewsOCRTestCase(TestCase):
         response = self.client.get(reverse("ocr:download", args=[job.pk, "pdf"]))
 
         self.assertEqual(response.status_code, 404)
+
+
+@override_settings(MEDIA_ROOT=TEMP_MEDIA_ROOT, OCR_RASTER_DPI=150)
+class ReamostragemTestCase(TestCase):
+    """A redução do PDF rasterizado pelo Ghostscript.
+
+    Ela nunca pode piorar o resultado: o PDF forçado já está correto, e o
+    Ghostscript aqui é só economia de disco e de banda.
+    """
+
+    def setUp(self):
+        self.dir = Path(TEMP_MEDIA_ROOT) / "reamostragem"
+        self.dir.mkdir(parents=True, exist_ok=True)
+        self.pdf = self.dir / "forcado.pdf"
+        self.pdf.write_bytes(pdf_valido(4))
+        self.original = self.pdf.read_bytes()
+
+    def tearDown(self):
+        shutil.rmtree(TEMP_MEDIA_ROOT, ignore_errors=True)
+
+    @staticmethod
+    def _saida_de(cmd):
+        prefixo = "-sOutputFile="
+        return Path(next(arg for arg in cmd if arg.startswith(prefixo))[len(prefixo) :])
+
+    def test_substitui_o_arquivo_quando_o_resultado_encolhe(self):
+        menor = pdf_valido(1)
+
+        def fake_run(cmd, **kwargs):
+            self._saida_de(cmd).write_bytes(menor)
+            return subprocess.CompletedProcess(cmd, 0)
+
+        with (
+            patch("ocr.services.shutil.which", return_value="/usr/bin/gs"),
+            patch("ocr.services.subprocess.run", side_effect=fake_run) as run,
+        ):
+            _reamostrar_com_ghostscript(self.pdf)
+
+        self.assertEqual(self.pdf.read_bytes(), menor)
+        self.assertIn("-dColorImageResolution=150", run.call_args[0][0])
+        self.assertIn("-dMonoImageResolution=300", run.call_args[0][0])
+
+    def test_mantem_o_arquivo_quando_o_resultado_nao_encolhe(self):
+        def fake_run(cmd, **kwargs):
+            self._saida_de(cmd).write_bytes(pdf_valido(9))
+            return subprocess.CompletedProcess(cmd, 0)
+
+        with (
+            patch("ocr.services.shutil.which", return_value="/usr/bin/gs"),
+            patch("ocr.services.subprocess.run", side_effect=fake_run),
+        ):
+            _reamostrar_com_ghostscript(self.pdf)
+
+        self.assertEqual(self.pdf.read_bytes(), self.original)
+
+    def test_mantem_o_arquivo_quando_a_saida_sai_vazia(self):
+        def fake_run(cmd, **kwargs):
+            self._saida_de(cmd).write_bytes(b"")
+            return subprocess.CompletedProcess(cmd, 0)
+
+        with (
+            patch("ocr.services.shutil.which", return_value="/usr/bin/gs"),
+            patch("ocr.services.subprocess.run", side_effect=fake_run),
+        ):
+            _reamostrar_com_ghostscript(self.pdf)
+
+        self.assertEqual(self.pdf.read_bytes(), self.original)
+
+    def test_mantem_o_arquivo_quando_o_ghostscript_falha(self):
+        with (
+            patch("ocr.services.shutil.which", return_value="/usr/bin/gs"),
+            patch(
+                "ocr.services.subprocess.run",
+                side_effect=subprocess.CalledProcessError(1, "gs"),
+            ),
+        ):
+            _reamostrar_com_ghostscript(self.pdf)
+
+        self.assertEqual(self.pdf.read_bytes(), self.original)
+
+    def test_nao_faz_nada_sem_ghostscript_instalado(self):
+        with (
+            patch("ocr.services.shutil.which", return_value=None),
+            patch("ocr.services.subprocess.run") as run,
+        ):
+            _reamostrar_com_ghostscript(self.pdf)
+
+        run.assert_not_called()
+        self.assertEqual(self.pdf.read_bytes(), self.original)
