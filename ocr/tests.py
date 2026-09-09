@@ -18,12 +18,18 @@ from django.core.files.uploadedfile import SimpleUploadedFile
 from django.test import TestCase, override_settings
 from django.urls import reverse
 from django.utils import timezone
-from pypdf import PdfWriter
+from pypdf import PdfReader, PdfWriter
 
 from legal.models import DocumentoLegal, TipoDocumento
 
 from .models import OCRJob
-from .services import OCRProcessor, extrair_paginas, ocr_disponivel, texto_para_markdown
+from .services import (
+    OCRProcessor,
+    extrair_paginas,
+    ocr_disponivel,
+    texto_esparso,
+    texto_para_markdown,
+)
 from .tasks import cleanup_expired_ocr_jobs, process_ocr_job
 
 TEMP_MEDIA_ROOT = tempfile.mkdtemp(prefix="divisor_pdf_ocr_test_media_")
@@ -34,6 +40,39 @@ def pdf_valido(paginas=2):
     writer = PdfWriter()
     for _ in range(paginas):
         writer.add_blank_page(width=612, height=792)
+    buffer = io.BytesIO()
+    writer.write(buffer)
+    return buffer.getvalue()
+
+
+def pdf_com_imagem(paginas=1):
+    """Bytes de um PDF em que cada página referencia um objeto de imagem.
+
+    É a forma do arquivo híbrido — slide exportado do PowerPoint, com o corpo
+    em imagem — reduzida ao que o diagnóstico olha: imagem presente e texto
+    ausente.
+    """
+    from pypdf.generic import DecodedStreamObject, DictionaryObject, NameObject, NumberObject
+
+    writer = PdfWriter()
+    for _ in range(paginas):
+        pagina = writer.add_blank_page(width=612, height=792)
+        imagem = DecodedStreamObject()
+        imagem.set_data(b"\x00\x00\x00")
+        for chave, valor in (
+            ("/Type", NameObject("/XObject")),
+            ("/Subtype", NameObject("/Image")),
+            ("/Width", NumberObject(1)),
+            ("/Height", NumberObject(1)),
+            ("/ColorSpace", NameObject("/DeviceRGB")),
+            ("/BitsPerComponent", NumberObject(8)),
+        ):
+            imagem[NameObject(chave)] = valor
+        referencia = writer._add_object(imagem)
+        pagina["/Resources"][NameObject("/XObject")] = DictionaryObject(
+            {NameObject("/Im1"): referencia}
+        )
+
     buffer = io.BytesIO()
     writer.write(buffer)
     return buffer.getvalue()
@@ -99,9 +138,9 @@ class ServicosOCRTestCase(TestCase):
         self.assertIn("não está disponível", str(ctx.exception))
 
     def test_run_traduz_o_codigo_de_saida_em_mensagem_util(self):
-        # Código 6 é "o PDF já tem texto": o usuário resolve isso marcando a
-        # opção de refazer, e a mensagem precisa dizer exatamente isso.
-        erro = subprocess.CalledProcessError(6, "ocrmypdf", stderr="PriorOcrFoundError")
+        # Código 5 é "não deu para ler ou gravar o arquivo": não há segunda
+        # tentativa que resolva, então a mensagem vai direto para o usuário.
+        erro = subprocess.CalledProcessError(5, "ocrmypdf", stderr="InputFileError")
 
         with (
             patch("ocr.services.shutil.which", return_value="/usr/bin/ocrmypdf"),
@@ -110,7 +149,102 @@ class ServicosOCRTestCase(TestCase):
         ):
             OCRProcessor().run(self.entrada, self.saida)
 
-        self.assertIn("refazer OCR", str(ctx.exception))
+        self.assertIn("ler ou gravar", str(ctx.exception))
+
+    def test_run_refaz_forcando_quando_o_pdf_e_recusado_por_ja_ter_texto(self):
+        # Código 6 cobre o PriorOcrFoundError e o TaggedPDFError — este último é
+        # o que um PDF exportado do Word ou do PowerPoint devolve, antes de
+        # reconhecer coisa alguma. Rasterizar é a única saída.
+        chamadas = []
+
+        def fake_run(cmd, **kwargs):
+            chamadas.append(cmd)
+            if len(chamadas) == 1:
+                raise subprocess.CalledProcessError(6, "ocrmypdf", stderr="TaggedPDFError")
+            Path(cmd[-1]).write_bytes(pdf_valido(2))
+            return subprocess.CompletedProcess(cmd, 0)
+
+        with (
+            patch("ocr.services.shutil.which", return_value="/usr/bin/ocrmypdf"),
+            patch("ocr.services.subprocess.run", side_effect=fake_run),
+            patch("ocr.services._reamostrar_com_ghostscript") as reamostrar,
+        ):
+            self.assertTrue(OCRProcessor().run(self.entrada, self.saida))
+
+        self.assertEqual(len(chamadas), 2)
+        self.assertIn("--skip-text", chamadas[0])
+        self.assertIn("--force-ocr", chamadas[1])
+        self.assertTrue(self.saida.exists())
+        reamostrar.assert_called_once_with(self.saida)
+
+    def test_run_refaz_forcando_quando_a_saida_sai_hibrida(self):
+        # Cada página tem um resto de texto nativo e o corpo em imagem: o
+        # --skip-text pulou a página inteira por causa do pouco texto.
+        chamadas = []
+
+        def fake_run(cmd, **kwargs):
+            chamadas.append(cmd)
+            Path(cmd[-1]).write_bytes(pdf_com_imagem(2) if len(chamadas) == 1 else pdf_valido(3))
+            return subprocess.CompletedProcess(cmd, 0)
+
+        with (
+            patch("ocr.services.shutil.which", return_value="/usr/bin/ocrmypdf"),
+            patch("ocr.services.subprocess.run", side_effect=fake_run),
+            patch("ocr.services._reamostrar_com_ghostscript"),
+            patch("ocr.services.extrair_paginas", side_effect=[["curto"], ["texto" * 200]]),
+        ):
+            self.assertTrue(OCRProcessor().run(self.entrada, self.saida))
+
+        self.assertEqual(len(chamadas), 2)
+        self.assertIn("--force-ocr", chamadas[1])
+        # A saída forçada substituiu a primeira, e o arquivo temporário sumiu.
+        self.assertEqual(len(PdfReader(str(self.saida)).pages), 3)
+        self.assertEqual(list(self.dir.glob("*_forcado.pdf")), [])
+
+    def test_run_mantem_o_primeiro_resultado_quando_forcar_nao_melhora(self):
+        def fake_run(cmd, **kwargs):
+            Path(cmd[-1]).write_bytes(pdf_com_imagem(2))
+            return subprocess.CompletedProcess(cmd, 0)
+
+        with (
+            patch("ocr.services.shutil.which", return_value="/usr/bin/ocrmypdf"),
+            patch("ocr.services.subprocess.run", side_effect=fake_run),
+            patch("ocr.services._reamostrar_com_ghostscript") as reamostrar,
+            patch("ocr.services.extrair_paginas", side_effect=[["texto" * 200], ["curto"]]),
+        ):
+            self.assertTrue(OCRProcessor().run(self.entrada, self.saida))
+
+        # Sem ganho de texto, não se troca um PDF válido por um rasterizado.
+        self.assertEqual(len(PdfReader(str(self.saida)).pages), 2)
+        reamostrar.assert_not_called()
+
+    def test_run_forcado_pelo_usuario_nao_repete_a_passada(self):
+        chamadas = []
+
+        def fake_run(cmd, **kwargs):
+            chamadas.append(cmd)
+            Path(cmd[-1]).write_bytes(pdf_com_imagem(2))
+            return subprocess.CompletedProcess(cmd, 0)
+
+        with (
+            patch("ocr.services.shutil.which", return_value="/usr/bin/ocrmypdf"),
+            patch("ocr.services.subprocess.run", side_effect=fake_run),
+            patch("ocr.services._reamostrar_com_ghostscript"),
+        ):
+            self.assertTrue(OCRProcessor(forcar=True).run(self.entrada, self.saida))
+
+        self.assertEqual(len(chamadas), 1)
+
+    def test_texto_esparso_so_acusa_pagina_que_tem_imagem(self):
+        com_imagem = self.dir / "hibrido.pdf"
+        com_imagem.write_bytes(pdf_com_imagem(3))
+        self.assertTrue(texto_esparso(com_imagem))
+
+        # Página em branco não tem texto nem imagem: não é PDF híbrido, é PDF
+        # vazio, e rasterizar não traria texto nenhum.
+        em_branco = self.dir / "branco.pdf"
+        em_branco.write_bytes(pdf_valido(3))
+        self.assertFalse(texto_esparso(em_branco))
 
     def test_run_avisa_quando_estoura_o_tempo_limite(self):
         with (

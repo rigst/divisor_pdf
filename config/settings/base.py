@@ -181,6 +181,19 @@ OCR_JOBS = int(os.getenv("OCR_JOBS", "2"))
 # Caminho do binário do OCRmyPDF, quando ele não está no PATH do serviço.
 OCRMYPDF_BINARY = os.getenv("OCRMYPDF_BINARY", "ocrmypdf")
 
+# Diagnóstico do PDF híbrido (texto nativo ralo por cima de imagem, típico de
+# slide exportado do PowerPoint): página com imagem e menos caracteres que
+# isto conta como não reconhecida. Passando da proporção abaixo, o arquivo é
+# refeito com --force-ocr. O limiar fica bem abaixo do que rende uma página de
+# texto de verdade, para não rasterizar documento bom à toa.
+OCR_MIN_CHARS_POR_PAGINA = int(os.getenv("OCR_MIN_CHARS_POR_PAGINA", "150"))
+OCR_PROPORCAO_PAGINAS_ESPARSAS = float(os.getenv("OCR_PROPORCAO_PAGINAS_ESPARSAS", "0.3"))
+
+# Resolução da reamostragem aplicada depois de um OCR forçado. Rasterizar na
+# resolução original multiplica o tamanho do arquivo (83 MB contra 19 MB, em
+# um deck de aula medido aqui) sem ganho de legibilidade.
+OCR_RASTER_DPI = int(os.getenv("OCR_RASTER_DPI", "150"))
+
 # Limite de divisão informado pelo usuário usa MB decimal, igual ao exibido por
 # gerenciadores de arquivo comuns: 2 MB = 2.000.000 bytes.
 PDF_SPLIT_BYTES_PER_MB = 1000 * 1000
