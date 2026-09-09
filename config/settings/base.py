@@ -189,6 +189,14 @@ OCRMYPDF_BINARY = os.getenv("OCRMYPDF_BINARY", "ocrmypdf")
 OCR_MIN_CHARS_POR_PAGINA = int(os.getenv("OCR_MIN_CHARS_POR_PAGINA", "150"))
 OCR_PROPORCAO_PAGINAS_ESPARSAS = float(os.getenv("OCR_PROPORCAO_PAGINAS_ESPARSAS", "0.3"))
 
+# Cabeçalho e rodapé correntes no Markdown: a mesma linha na borda de pelo
+# menos esta fração das páginas é o carimbo do documento ("Infraestrutura de
+# Sistemas — PUCRS online" em todos os 124 slides do deck medido aqui) e sai do
+# `.md`. O documento precisa ter páginas suficientes para a repetição
+# significar alguma coisa.
+OCR_MIN_PAGINAS_PARA_CARIMBO = int(os.getenv("OCR_MIN_PAGINAS_PARA_CARIMBO", "5"))
+OCR_FRACAO_PAGINAS_COM_CARIMBO = float(os.getenv("OCR_FRACAO_PAGINAS_COM_CARIMBO", "0.4"))
+
 # Resolução da reamostragem aplicada depois de um OCR forçado. Rasterizar na
 # resolução original multiplica o tamanho do arquivo (83 MB contra 19 MB, em
 # um deck de aula medido aqui) sem ganho de legibilidade.
