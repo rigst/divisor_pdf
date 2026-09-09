@@ -29,6 +29,8 @@ from .services import (
     _reamostrar_com_ghostscript,
     extrair_paginas,
     ocr_disponivel,
+    parece_digitalizacao,
+    parece_hibrido,
     texto_esparso,
     texto_para_markdown,
 )
@@ -80,6 +82,36 @@ def pdf_com_imagem(paginas=1):
     return buffer.getvalue()
 
 
+def pdf_hibrido(paginas=1, fonte="/Helvetica"):
+    """Bytes do PDF híbrido: cada página tem imagem *e* texto de fonte própria.
+
+    É o slide exportado do PowerPoint — o corpo veio em imagem e o pouco de
+    texto que sobrou é vetorial. `fonte` permite montar também o caso oposto, a
+    digitalização já passada por um OCR, cujo único texto usa a fonte invisível
+    do Tesseract.
+    """
+    from pypdf.generic import DictionaryObject, NameObject
+
+    writer = PdfWriter()
+    writer.append(io.BytesIO(pdf_com_imagem(paginas)))
+    for pagina in writer.pages:
+        pagina["/Resources"][NameObject("/Font")] = DictionaryObject(
+            {
+                NameObject("/F1"): DictionaryObject(
+                    {
+                        NameObject("/Type"): NameObject("/Font"),
+                        NameObject("/Subtype"): NameObject("/Type1"),
+                        NameObject("/BaseFont"): NameObject(fonte),
+                    }
+                )
+            }
+        )
+
+    buffer = io.BytesIO()
+    writer.write(buffer)
+    return buffer.getvalue()
+
+
 def upload_pdf(nome="documento.pdf", paginas=1):
     return SimpleUploadedFile(nome, pdf_valido(paginas), content_type="application/pdf")
 
@@ -112,6 +144,77 @@ class ServicosOCRTestCase(TestCase):
         self.assertIn("--force-ocr", cmd)
         self.assertNotIn("--skip-text", cmd)
         self.assertEqual(cmd[cmd.index("--language") + 1], "por+eng")
+
+    def test_comando_corrige_inclinacao_so_na_digitalizacao(self):
+        processor = OCRProcessor(idioma="por")
+
+        digitalizado = processor.montar_comando(self.entrada, self.saida, digitalizacao=True)
+        self.assertIn("--deskew", digitalizado)
+        self.assertIn("--rotate-pages", digitalizado)
+
+        # Arquivo nascido digital já sai no esquadro: endireitar não muda o
+        # resultado e custa um terço do tempo do reconhecimento.
+        nativo = processor.montar_comando(self.entrada, self.saida, digitalizacao=False)
+        self.assertNotIn("--deskew", nativo)
+        self.assertNotIn("--rotate-pages", nativo)
+
+    def test_comando_forcado_dispensa_o_optimize(self):
+        # Quem reduz o PDF rasterizado é a reamostragem do Ghostscript; o
+        # `--optimize` só repetiria o trabalho, mais devagar.
+        forcado = OCRProcessor(forcar=True).montar_comando(self.entrada, self.saida)
+        self.assertEqual(forcado[forcado.index("--optimize") + 1], "0")
+
+        padrao = OCRProcessor().montar_comando(self.entrada, self.saida)
+        self.assertEqual(padrao[padrao.index("--optimize") + 1], "1")
+
+    def test_parece_digitalizacao_separa_o_papel_do_nascido_digital(self):
+        digitalizado = self.dir / "digitalizado.pdf"
+        digitalizado.write_bytes(pdf_com_imagem(3))
+        self.assertTrue(parece_digitalizacao(digitalizado))
+
+        nativo = self.dir / "nativo.pdf"
+        nativo.write_bytes(pdf_hibrido(3))
+        self.assertFalse(parece_digitalizacao(nativo))
+
+        # Digitalização que já passou por um OCR só tem a fonte invisível do
+        # Tesseract: continua sendo papel, e pode estar torta.
+        reconhecido = self.dir / "reconhecido.pdf"
+        reconhecido.write_bytes(pdf_hibrido(3, fonte="/AAAAAA+GlyphLessFont"))
+        self.assertTrue(parece_digitalizacao(reconhecido))
+
+    def test_parece_hibrido_exige_texto_nativo_alem_da_imagem(self):
+        hibrido = self.dir / "hibrido_entrada.pdf"
+        hibrido.write_bytes(pdf_hibrido(3))
+        self.assertTrue(parece_hibrido(hibrido))
+
+        # Digitalização crua não tem texto nativo nenhum: o `--skip-text`
+        # reconhece tudo e não há passada a economizar.
+        digitalizado = self.dir / "so_imagem.pdf"
+        digitalizado.write_bytes(pdf_com_imagem(3))
+        self.assertFalse(parece_hibrido(digitalizado))
+
+        self.assertFalse(parece_hibrido(self.entrada))
+
+    def test_run_vai_direto_ao_force_ocr_no_hibrido_de_entrada(self):
+        entrada = self.dir / "hibrido_run.pdf"
+        entrada.write_bytes(pdf_hibrido(3))
+        chamadas = []
+
+        def fake_run(cmd, **kwargs):
+            chamadas.append(cmd)
+            Path(cmd[-1]).write_bytes(pdf_valido(3))
+            return subprocess.CompletedProcess(cmd, 0)
+
+        with (
+            patch("ocr.services.shutil.which", return_value="/usr/bin/ocrmypdf"),
+            patch("ocr.services.subprocess.run", side_effect=fake_run),
+            patch("ocr.services._reamostrar_com_ghostscript"),
+        ):
+            OCRProcessor().run(entrada, self.saida)
+
+        # Uma passada só, e já forçada: sem a pré-detecção seriam duas.
+        self.assertEqual(len(chamadas), 1)
+        self.assertIn("--force-ocr", chamadas[0])
 
     def test_run_gera_o_pdf_de_saida(self):
         def fake_run(cmd, **kwargs):
@@ -411,6 +514,51 @@ class ServicosOCRTestCase(TestCase):
 
         self.assertIn("- primeiro", md)
         self.assertIn("- segundo", md)
+
+    def test_markdown_reconhece_o_bullet_que_o_ocr_leu_como_letra(self):
+        # O bullet de slide é um desenho, e o Tesseract costuma devolvê-lo como
+        # "e". Repetido na mesma página, é lista.
+        md = texto_para_markdown(["e primeiro item\ne segundo item"], "slide")
+
+        self.assertIn("- primeiro item", md)
+        self.assertIn("- segundo item", md)
+
+    def test_markdown_nao_confunde_conjuncao_com_marcador(self):
+        # Um "e" sozinho, sem repetição na página nem no documento, é a
+        # conjunção e continua sendo texto.
+        md = texto_para_markdown(["e depois disso o processo termina"], "prosa")
+
+        self.assertNotIn("- depois disso", md)
+        self.assertIn("e depois disso", md)
+
+    def test_markdown_aceita_o_marcador_estabelecido_pelo_documento(self):
+        # Página com um item só: a repetição local não existe, mas o resto do
+        # documento já mostrou que naquele arquivo o "e" é o bullet.
+        paginas = ["e um\ne dois"] * 4 + ["e sozinho"]
+        md = texto_para_markdown(paginas, "deck")
+
+        self.assertIn("- sozinho", md)
+
+    def test_markdown_tira_o_rodape_que_se_repete_em_todas_as_paginas(self):
+        # A tarja do material didático aparece em toda página e o OCR a lê em
+        # toda página; no `.md` ela é só ruído. A variação de leitura entre uma
+        # página e outra não pode impedir o reconhecimento.
+        paginas = [
+            f"Conteúdo da página {n}\nInfraestrutura de Sistemas PUCRS online @uol edtech."
+            for n in range(1, 7)
+        ]
+        paginas[2] = "Conteúdo da página 3\nInfraestrutura de Sistemas PUCRS online @ uel edtech."
+        md = texto_para_markdown(paginas, "aula")
+
+        self.assertNotIn("edtech", md)
+        self.assertIn("Conteúdo da página 3", md)
+
+    def test_markdown_preserva_repeticao_em_documento_curto(self):
+        # Duas páginas não bastam para uma linha repetida ser carimbo: pode ser
+        # o conteúdo mesmo.
+        md = texto_para_markdown(["Relatório mensal\ncorpo"] * 2, "curto")
+
+        self.assertEqual(md.count("Relatório mensal"), 2)
 
     def test_markdown_colapsa_linhas_em_branco_repetidas(self):
         md = texto_para_markdown(["um\n\n\n\n\ndois"], "espacos")

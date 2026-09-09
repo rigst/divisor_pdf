@@ -685,7 +685,7 @@ html {
 }
 
 #submit-btn { margin-top: var(--space-lg); }
-#download-btn { margin-bottom: var(--space-md); color: #fff; }
+#download-btn { margin-bottom: var(--space-md); }
 #new-split-btn,
 #retry-btn { margin-top: var(--space-sm); }
 
@@ -1353,6 +1353,20 @@ html {
 /* -- Cor de link --------------------------------------------------------
    Onde o app define `a { color: inherit }` num seletor com classe, estes
    precisam de força equivalente para vencer. */
+
+/* Botão que é <a>, e não <button>: `.ds-root a { color: inherit }` do DS pesa
+   (0,1,1) e vence o `color` de `.ds-btn--solid` (0,1,0), então o rótulo herdava
+   a cor do texto do cartão — preto sobre o roxo do acento no tema claro (o
+   `#download-btn` já vinha remendado com `color:#fff` só para ele). Os
+   seletores abaixo pesam (0,2,1) e valem para todos os botões-link, em vez de
+   um remendo por id. Branco sobre o roxo #7c3aed dá 5,7:1, acima do 4,5:1
+   exigido pelo WCAG AA. */
+.ds-root a.ds-btn--solid { color: var(--ds-on-accent); }
+.ds-root a.ds-btn--primary,
+.ds-root a.ds-btn--danger { color: #fff; }
+.ds-root a.ds-btn--ghost,
+.ds-root a.ds-btn--subtle { color: var(--ds-t-900); }
+.ds-root a.ds-btn--subtle:hover { color: var(--ds-accent-fg); }
 
 .legal-corpo a,
 .legal-atalhos a,
