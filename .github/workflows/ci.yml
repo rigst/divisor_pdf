@@ -22,7 +22,7 @@ jobs:
     # Fixado no SHA, e não na tag v1: tag é ponteiro móvel, e quem puder
     # reescrevê-la passa a rodar código arbitrário com os secrets deste repo.
     # O comentário ao lado é o que o Dependabot lê para propor a subida.
-    uses: rigst/ci/.github/workflows/python-django.yml@fd462e057b87bfa5696a25060b92a584751c4199 # v1
+    uses: rigst/ci/.github/workflows/python-django.yml@727e3fb3b36446c9800087d6cb770e046e650062 # v1
     # Explícito em vez de `secrets: inherit`: o workflow chamado recebe só
     # este, e não tudo que o repositório tiver hoje ou vier a ter.
     secrets:
