@@ -93,7 +93,6 @@ jobs:
         /ocr/
         /termos/
         /privacidade/
-        /legal/aceite/
         /admin/login/
 
       # --- conformidade ---
@@ -114,12 +113,16 @@ jobs:
       # --- acessibilidade ---
       run-a11y: true
       a11y-setup-command: python manage.py importar_documentos_legais --publicar
+      # Sem /legal/aceite/: esta rota levanta Http404 neste projeto por
+      # projeto, não por falta de dado. Ela depende de LEGAL_VISITOR_ACTION,
+      # que os outros sistemas definem e este não — o divisor não tem contas,
+      # o aceite é anônimo e preso à sessão, como o legal/urls.py explica. A
+      # rota veio copiada dos outros repos e vinha auditando a página de erro.
       a11y-paths: |
         /
         /ocr/
         /termos/
         /privacidade/
-        /legal/aceite/
         /admin/login/
       # Medido antes de ligar: zero violações nas cinco páginas em WCAG 2.1 AA.
       a11y-fail-on: serious
