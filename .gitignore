@@ -30,6 +30,11 @@ celerybeat.pid
 *.swp
 *.swo
 *~
+# Cópias de segurança feitas na mão no servidor (production.py.bak.20260831-002522
+# e afins). Ficam soltas na árvore de produção, fora do git — sem esta regra um
+# `git add .` distraído commitaria uma cópia de settings de produção.
+*.bak
+*.bak.*
 
 # OS
 .DS_Store
