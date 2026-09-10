@@ -4,6 +4,8 @@ Compartilhadas entre development e production.
 """
 
 import os
+import sys
+import tempfile
 from pathlib import Path
 
 from dotenv import load_dotenv
@@ -133,6 +135,21 @@ STATIC_ROOT = BASE_DIR / "staticfiles"
 # Media files (uploads)
 MEDIA_URL = "/media/"
 MEDIA_ROOT = BASE_DIR / "media"
+
+# A suíte roda com `config.settings.development`, que herda o MEDIA_ROOT daqui
+# — e BASE_DIR é a própria árvore de produção. Sem esta guarda, cada rodada
+# despejava os PDFs de teste em media/sessions/: 170 dos 172 arquivos que
+# estavam lá eram o fixture de 69 bytes de legal/tests.py.
+# As duas primeiras condições são o idioma dos outros projetos; a terceira
+# cobre `python -m pytest`, onde o argv[0] é o `__main__.py` do pacote.
+IS_TEST = (
+    "test" in sys.argv
+    or Path(sys.argv[0]).name.startswith(("pytest", "py.test"))
+    or "pytest" in sys.modules
+)
+
+if IS_TEST:
+    MEDIA_ROOT = Path(tempfile.mkdtemp(prefix="divisor-pdf-test-media-"))
 
 
 # Default primary key field type
