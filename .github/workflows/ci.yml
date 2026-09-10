@@ -67,7 +67,11 @@ jobs:
       test-env: |
         ALLOWED_HOSTS=localhost,127.0.0.1,testserver
 
-      soft-fail: "diff,frontend,layout"
+      # As três etapas de qualidade saíram do soft-fail: os fail-on já estão
+      # em `erro` e a medição deu zero bloqueantes. Ficaram para trás no PR
+      # do aperto porque a inserção do `test-env` separou este comentário da
+      # chave e a substituição automática não casou.
+      soft-fail: ""
 
       # --- qualidade ---
       #
