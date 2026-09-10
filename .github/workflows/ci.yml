@@ -22,7 +22,7 @@ jobs:
     # Fixado no SHA, e não na tag v1: tag é ponteiro móvel, e quem puder
     # reescrevê-la passa a rodar código arbitrário com os secrets deste repo.
     # O comentário ao lado é o que o Dependabot lê para propor a subida.
-    uses: rigst/ci/.github/workflows/python-django.yml@fd462e057b87bfa5696a25060b92a584751c4199 # v1
+    uses: rigst/ci/.github/workflows/python-django.yml@566c2d8c37ca30f390bcd4dc5f1c6e03014cbd4f # v1
     # Explícito em vez de `secrets: inherit`: o workflow chamado recebe só
     # este, e não tudo que o repositório tiver hoje ou vier a ter.
     secrets:
@@ -58,33 +58,43 @@ jobs:
       # As etapas de qualidade entram toleradas enquanto o passivo é medido.
       # Lista vazia significa "nada tolerado": ligá-las sem declarar aqui
       # reprovaria no primeiro dia.
+      # O ALLOWED_HOSTS de teste precisa incluir 127.0.0.1: é onde o servidor
+      # dos jobs de a11y e de layout responde. Sem isso o Django devolve
+      # DisallowedHost (HTTP 400) em todas as rotas, e as duas etapas medem a
+      # página de erro em vez do site — no axe isso é pior que uma falha, porque
+      # a tela de erro passa quase limpa e a acessibilidade fica verde sem ter
+      # auditado nada. Descoberto em 10/09/2026.
+      test-env: |
+        ALLOWED_HOSTS=localhost,127.0.0.1,testserver
+
       soft-fail: "diff,frontend,layout"
 
-      # --- qualidade (primeira rodada: medir, não bloquear) ---
+      # --- qualidade ---
       #
-      # Procedimento da seção 8 do RUNBOOK: rodar, ler o resumo no painel do
-      # job, conferir se algum achado é falso positivo neste projeto, e só
-      # então trocar os `nenhum` por `erro` e tirar do soft-fail.
+      # Apertado em 10/09/2026. A primeira medição dava 42 achados de layout,
+      # 24 deles bloqueantes; nenhum era real. O servidor devolvia HTTP 400 em
+      # todas as rotas e a etapa media a página de erro do Django. Com o
+      # ALLOWED_HOSTS corrigido e a rota inexistente removida, sobram 5
+      # achados — 2 de conteúdo cortado e 3 de alvo de toque —, todos aviso.
       run-diff-quality: true
-      diff-quality-fail-on: nenhum
+      diff-quality-fail-on: erro
 
       # frontend-paths precisa ser explícito: o glob de CSS a partir da raiz
       # varre o venv/ inteiro e o job trava sem mensagem de erro.
       run-frontend: true
       frontend-paths: "static"
       template-paths: "templates"
-      frontend-fail-on: nenhum
+      frontend-fail-on: erro
 
       # As mesmas rotas públicas que o a11y já audita.
       run-layout: true
-      layout-fail-on: nenhum
+      layout-fail-on: erro
       layout-setup-command: python manage.py importar_documentos_legais --publicar
       layout-paths: |
         /
         /ocr/
         /termos/
         /privacidade/
-        /legal/aceite/
         /admin/login/
 
       # --- conformidade ---
@@ -105,12 +115,16 @@ jobs:
       # --- acessibilidade ---
       run-a11y: true
       a11y-setup-command: python manage.py importar_documentos_legais --publicar
+      # Sem /legal/aceite/: esta rota levanta Http404 neste projeto por
+      # projeto, não por falta de dado. Ela depende de LEGAL_VISITOR_ACTION,
+      # que os outros sistemas definem e este não — o divisor não tem contas,
+      # o aceite é anônimo e preso à sessão, como o legal/urls.py explica. A
+      # rota veio copiada dos outros repos e vinha auditando a página de erro.
       a11y-paths: |
         /
         /ocr/
         /termos/
         /privacidade/
-        /legal/aceite/
         /admin/login/
       # Medido antes de ligar: zero violações nas cinco páginas em WCAG 2.1 AA.
       a11y-fail-on: serious
