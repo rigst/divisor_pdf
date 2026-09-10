@@ -1,10 +1,11 @@
 """Testes do app `legal` no divisor — o único projeto com aceite anônimo."""
 
+from django.conf import settings
 from django.contrib.auth import get_user_model
 from django.contrib.auth.models import AnonymousUser
 from django.core.files.uploadedfile import SimpleUploadedFile
 from django.core.management import call_command
-from django.test import TestCase
+from django.test import SimpleTestCase, TestCase
 from django.urls import reverse
 
 from legal.testing import SENHA_TESTE
@@ -310,3 +311,13 @@ class ExportarAceitesCsvTests(TestCase):
         self.assertIn("integro", linhas[0])
         self.assertIn(documento.versao, linhas[1])
         self.assertIn("sim", linhas[1])  # e_visitante
+
+
+class MidiaDeTesteTests(SimpleTestCase):
+    def test_a_suite_nao_grava_na_midia_de_producao(self):
+        # A suíte roda com `config.settings.development`, que herda o
+        # MEDIA_ROOT do base — e BASE_DIR é a árvore de produção. Sem a guarda
+        # em base.py, cada rodada despejava os PDFs de teste em
+        # media/sessions/ do servidor.
+        self.assertTrue(settings.IS_TEST)
+        self.assertIn("divisor-pdf-test-media-", str(settings.MEDIA_ROOT))
