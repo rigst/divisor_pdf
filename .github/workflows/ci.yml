@@ -58,15 +58,14 @@ jobs:
       # As etapas de qualidade entram toleradas enquanto o passivo é medido.
       # Lista vazia significa "nada tolerado": ligá-las sem declarar aqui
       # reprovaria no primeiro dia.
+      # O ALLOWED_HOSTS de teste precisa incluir 127.0.0.1: é onde o servidor
+      # dos jobs de a11y e de layout responde. Sem isso o Django devolve
+      # DisallowedHost (HTTP 400) em todas as rotas, e as duas etapas medem a
+      # página de erro em vez do site — no axe isso é pior que uma falha, porque
+      # a tela de erro passa quase limpa e a acessibilidade fica verde sem ter
+      # auditado nada. Descoberto em 10/09/2026.
       test-env: |
-      # ALLOWED_HOSTS precisa incluir 127.0.0.1: é onde o servidor dos jobs de
-      # a11y e de layout responde. Sem isso o Django devolvia DisallowedHost
-      # (HTTP 400) em TODAS as rotas, e as duas etapas mediam a página de erro
-      # em vez do site — o axe passava quase limpo nela, então a
-      # acessibilidade ficava verde sem ter auditado nada. Descoberto em
-      # 10/09/2026; o pipeline agora reprova rota com 4xx, mas o host tem de
-      # estar certo de qualquer forma.
-      ALLOWED_HOSTS=localhost,127.0.0.1,testserver
+        ALLOWED_HOSTS=localhost,127.0.0.1,testserver
 
       soft-fail: "diff,frontend,layout"
 
