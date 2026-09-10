@@ -69,24 +69,26 @@ jobs:
 
       soft-fail: "diff,frontend,layout"
 
-      # --- qualidade (primeira rodada: medir, não bloquear) ---
+      # --- qualidade ---
       #
-      # Procedimento da seção 8 do RUNBOOK: rodar, ler o resumo no painel do
-      # job, conferir se algum achado é falso positivo neste projeto, e só
-      # então trocar os `nenhum` por `erro` e tirar do soft-fail.
+      # Apertado em 10/09/2026. A primeira medição dava 42 achados de layout,
+      # 24 deles bloqueantes; nenhum era real. O servidor devolvia HTTP 400 em
+      # todas as rotas e a etapa media a página de erro do Django. Com o
+      # ALLOWED_HOSTS corrigido e a rota inexistente removida, sobram 5
+      # achados — 2 de conteúdo cortado e 3 de alvo de toque —, todos aviso.
       run-diff-quality: true
-      diff-quality-fail-on: nenhum
+      diff-quality-fail-on: erro
 
       # frontend-paths precisa ser explícito: o glob de CSS a partir da raiz
       # varre o venv/ inteiro e o job trava sem mensagem de erro.
       run-frontend: true
       frontend-paths: "static"
       template-paths: "templates"
-      frontend-fail-on: nenhum
+      frontend-fail-on: erro
 
       # As mesmas rotas públicas que o a11y já audita.
       run-layout: true
-      layout-fail-on: nenhum
+      layout-fail-on: erro
       layout-setup-command: python manage.py importar_documentos_legais --publicar
       layout-paths: |
         /
