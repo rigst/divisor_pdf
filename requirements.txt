@@ -26,7 +26,7 @@ markdown==3.10.3
 nh3==0.3.6
 
 # Tema do admin.
-django-unfold==0.104.0
+django-unfold==0.105.0
 sentry-sdk==2.68.1
 
 # O pip entra aqui como qualquer outra dependência, e não como ferramenta à
