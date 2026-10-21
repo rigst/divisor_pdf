@@ -46,8 +46,8 @@ if [ "$DO_PULL" -eq 1 ]; then
     git pull --ff-only
 fi
 
-echo "==> Instalando dependências"
-"$PIP" install -q -r requirements.txt
+echo "==> Instalando dependências (pelo lock, como o cd-deploy.sh)"
+"$PIP" install -q --require-hashes -r requirements.lock
 
 echo "==> Garantindo diretórios de runtime"
 mkdir -p "$PROJECT_DIR/media/tmp" "$PROJECT_DIR/media/sessions" "$PROJECT_DIR/staticfiles"
