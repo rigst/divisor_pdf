@@ -79,9 +79,14 @@ main() {
   # o install seria pulado — deploy verde sem ter instalado nada. Rodar sempre
   # custa poucos segundos quando não há o que fazer, e torna o script
   # idempotente sob retry.
+  #
+  # Instala pelo lock, e não pelo requirements.txt: o pip não atualiza uma
+  # transitiva que já está instalada, então uma correção de segurança só no
+  # lock (ex.: urllib3, certifi) nunca chegava à produção. É a mesma instalação
+  # que o CI confere no job "lock com hashes".
   local gunicorn_antes gunicorn_depois
   gunicorn_antes="$(versao_instalada gunicorn)"
-  "$VENV/bin/pip" install -r requirements.txt
+  "$VENV/bin/pip" install --require-hashes -r requirements.lock
   gunicorn_depois="$(versao_instalada gunicorn)"
 
   eval "export $EXTRA_ENV"
