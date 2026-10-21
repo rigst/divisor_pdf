@@ -657,5 +657,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
-    attemptResume();
+    // `void`: as falhas de rede são tratadas no try/catch interno; não há
+    // rejeição para esperar aqui.
+    void attemptResume();
 });

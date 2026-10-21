@@ -132,7 +132,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const dm = decimals < 0 ? 0 : decimals;
         const sizes = ['Bytes', 'KB', 'MB', 'GB'];
         const i = Math.floor(Math.log(bytes) / Math.log(k));
-        return parseFloat((bytes / Math.pow(k, i)).toFixed(dm)) + ' ' + sizes[i];
+        return Number.parseFloat((bytes / Math.pow(k, i)).toFixed(dm)) + ' ' + sizes[i];
     }
 
     function formatDuration(seconds) {
@@ -177,7 +177,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }
 
         if (shouldSplit) {
-            const maxSizeMb = Math.max(parseFloat(maxSizeInput.value) || 10, 0.1);
+            const maxSizeMb = Math.max(Number.parseFloat(maxSizeInput.value) || 10, 0.1);
             const expectedParts = Math.max(fileCount, Math.ceil(totalMb / maxSizeMb));
             durations.split = Math.max(2, totalMb * 0.35) + (expectedParts * 0.8);
         }
@@ -286,8 +286,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // --- Slider & Input Sync ---
     function syncSizeLimit(value) {
-        const numValue = parseFloat(value);
-        if (isNaN(numValue)) return;
+        const numValue = Number.parseFloat(value);
+        if (Number.isNaN(numValue)) return;
 
         maxSizeSlider.value = Math.min(Math.max(numValue, 0.5), 100);
         maxSizeInput.value = numValue;
@@ -297,7 +297,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     maxSizeSlider.addEventListener('input', (e) => syncSizeLimit(e.target.value));
     maxSizeInput.addEventListener('input', (e) => {
-        let value = parseFloat(e.target.value);
+        let value = Number.parseFloat(e.target.value);
         if (value > MAX_FILE_SIZE_MB) value = MAX_FILE_SIZE_MB;
         if (value < 0.1) value = 0.1;
         
@@ -416,13 +416,9 @@ document.addEventListener('DOMContentLoaded', () => {
         handleFiles(files);
     });
 
+    // Sem handler de teclado: o drop-zone é um <button>, e Enter/Espaço já
+    // disparam o clique. Um listener extra abriria o seletor duas vezes.
     dropZone.addEventListener('click', () => fileInput.click());
-    dropZone.addEventListener('keydown', (e) => {
-        if (e.key === 'Enter' || e.key === ' ') {
-            e.preventDefault();
-            fileInput.click();
-        }
-    });
 
     fileInput.addEventListener('change', (e) => {
         const files = Array.from(e.target.files);
@@ -581,8 +577,8 @@ document.addEventListener('DOMContentLoaded', () => {
         }
 
         if (isSplitChecked) {
-            const max_size_mb = parseFloat(maxSizeInput.value);
-            if (isNaN(max_size_mb) || max_size_mb < 0.1) {
+            const max_size_mb = Number.parseFloat(maxSizeInput.value);
+            if (Number.isNaN(max_size_mb) || max_size_mb < 0.1) {
                 showToast('Informe um tamanho máximo de divisão válido.');
                 return;
             }
@@ -982,5 +978,7 @@ document.addEventListener('DOMContentLoaded', () => {
     retryBtn.addEventListener('click', resetApp);
 
     // Ao abrir a página, tenta reconectar a um processamento em andamento.
-    attemptResume();
+    // `void`: as falhas de rede são tratadas no try/catch interno; não há
+    // rejeição para esperar aqui.
+    void attemptResume();
 });
