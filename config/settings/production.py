@@ -33,6 +33,10 @@ DATABASES = {
         "HOST": os.getenv("DB_HOST", "localhost"),
         "PORT": os.getenv("DB_PORT", "5432"),
         "CONN_MAX_AGE": 600,
+        # Testa a conexão persistente antes de reutilizá-la: sem isso, quando o
+        # Postgres reinicia (ex.: unattended-upgrades), as requisições dão 500
+        # com "SSL connection has been closed unexpectedly" até o CONN_MAX_AGE expirar.
+        "CONN_HEALTH_CHECKS": True,
     }
 }
 
