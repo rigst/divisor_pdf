@@ -1433,7 +1433,7 @@ html {
     margin-bottom: var(--space-lg);
 }
 
-/* O drop-zone da tela de OCR é um <button> (teclado e foco nativos), então
+/* O drop-zone das telas de divisão e de OCR é um <button> (teclado e foco nativos), então
    precisa perder a aparência de botão do navegador e ocupar a largura toda. */
 button.drop-zone {
     width: 100%;
