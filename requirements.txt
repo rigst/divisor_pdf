@@ -12,22 +12,22 @@
 #
 # (o script mora no rigst/ci e não é versionado aqui; o cabeçalho do
 # requirements.lock repete a invocação exata usada)
-Django==6.0.8
+Django==6.1.2
 celery==5.6.3
 redis==8.1.0
 pypdf==6.21.4
-gunicorn==26.0.0
-psycopg2-binary==2.9.12
-python-dotenv==1.2.2
-django-redis==6.0.0
+gunicorn==26.2.0
+psycopg2-binary==2.9.13
+python-dotenv==1.2.4
+django-redis==7.0.0
 
 # Conformidade legal (app `legal`): render e sanitização das políticas.
-markdown==3.10.3
-nh3==0.3.6
+markdown==3.11.2
+nh3==0.3.7
 
 # Tema do admin.
-django-unfold==0.104.0
-sentry-sdk==2.68.1
+django-unfold==0.110.1
+sentry-sdk==2.73.0
 
 # O pip entra aqui como qualquer outra dependência, e não como ferramenta à
 # parte. Ele é o que o CD executa a cada deploy, e enquanto não estava
@@ -39,4 +39,4 @@ sentry-sdk==2.68.1
 #
 # Não use `pip install --upgrade pip` no deploy: isso instalaria versão não
 # fixada, que é o que o pin e o `--require-hashes` existem para evitar.
-pip==26.2.1
+pip==26.3
