@@ -32,10 +32,15 @@ jobs:
       django-settings-module: config.settings.production
       source-paths: "config core legal splitter ocr"
 
-      # Os testes rodam nos settings de desenvolvimento (SQLite), então o job
-      # não precisa de Postgres.
-      test-settings-module: config.settings.development
-      postgres: false
+      # Os testes (pytest, e2e, a11y e layout) rodam em PostgreSQL, o banco de
+      # produção: config.settings.test é o de desenvolvimento com o banco
+      # trocado. O pipeline sobe um postgres:16 (usuário, senha e banco
+      # `postgres`, em localhost:5432) e os DB_* do django-env abaixo já
+      # apontam para ele. O `postgres: false` de antes deixava a suíte em
+      # SQLite, e diferença real de comportamento só apareceria em produção.
+      # Localmente o pytest.ini segue em development (SQLite): o
+      # DJANGO_SETTINGS_MODULE exportado pelo CI vence a chave do ini.
+      test-settings-module: config.settings.test
 
       # Valores fictícios, só para o check --deploy conseguir importar os
       # settings de produção. Nada aqui é segredo real.
