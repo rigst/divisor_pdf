@@ -15,7 +15,10 @@ do CI tem precedência sobre o ini.
 
 import os
 
-from .development import *
+# Import com estrela de propósito (S2208): settings do Django são o namespace
+# do módulo, e este arquivo existe para herdar TODOS os nomes de development e
+# trocar um só — o mesmo idioma de development.py e production.py.
+from .development import *  # NOSONAR
 
 DATABASES = {
     "default": {
