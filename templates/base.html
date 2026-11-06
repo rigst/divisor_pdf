@@ -9,7 +9,7 @@
 
     <!-- Tema claro/escuro: aplica a preferência ANTES do CSS para evitar "flash".
          'auto' (sem preferência salva) segue o sistema. -->
-    <script>(function(){var e=document.documentElement;e.classList.add("js");try{var m=localStorage.getItem("ds-theme-mode");if(m==="dark"||(!m&&matchMedia("(prefers-color-scheme:dark)").matches))e.classList.add("ds-dark");}catch(x){}})();</script>
+    <script nonce="{{ request.csp_nonce }}">(function(){var e=document.documentElement;e.classList.add("js");try{var m=localStorage.getItem("ds-theme-mode");if(m==="dark"||(!m&&matchMedia("(prefers-color-scheme:dark)").matches))e.classList.add("ds-dark");}catch(x){}})();</script>
 
     {% load static %}
     <!-- Fontes auto-hospedadas (sem CDN externo — alinhado ao design system Stölben) -->
