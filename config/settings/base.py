@@ -10,6 +10,8 @@ from pathlib import Path
 
 from dotenv import load_dotenv
 
+from . import cabecalhos
+
 # Carrega variáveis de ambiente do .env
 load_dotenv()
 
@@ -51,6 +53,8 @@ INSTALLED_APPS = [
 # O aceite é anônimo, validado no próprio upload (splitter/views.py).
 MIDDLEWARE = [
     "django.middleware.security.SecurityMiddleware",
+    "core.security_headers.PermissionsPolicyMiddleware",
+    "core.security_headers.ContentSecurityPolicyMiddleware",
     "django.contrib.sessions.middleware.SessionMiddleware",
     "django.middleware.common.CommonMiddleware",
     "django.middleware.csrf.CsrfViewMiddleware",
@@ -58,6 +62,14 @@ MIDDLEWARE = [
     "django.contrib.messages.middleware.MessageMiddleware",
     "django.middleware.clickjacking.XFrameOptionsMiddleware",
 ]
+
+# Permissions-Policy e CSP (core/security_headers.py). Os valores e o motivo
+# de cada diretiva ficam em cabecalhos.py, para a política não se espalhar.
+PERMISSIONS_POLICY = cabecalhos.PERMISSIONS_POLICY
+ENABLE_CSP = cabecalhos.ENABLE_CSP
+CONTENT_SECURITY_POLICY = cabecalhos.CONTENT_SECURITY_POLICY
+CONTENT_SECURITY_POLICY_ADMIN = cabecalhos.CONTENT_SECURITY_POLICY_ADMIN
+ADMIN_PATH_PREFIX = cabecalhos.ADMIN_PATH_PREFIX
 
 UNFOLD = {
     "SITE_TITLE": "Divisor de PDFs",
