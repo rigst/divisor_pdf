@@ -12,22 +12,22 @@
 #
 # (o script mora no rigst/ci e não é versionado aqui; o cabeçalho do
 # requirements.lock repete a invocação exata usada)
-Django==6.1.2
-celery==5.6.3
+Django==6.1.3
+celery==5.7.0
 redis==8.1.0
-pypdf==6.21.4
-gunicorn==26.2.0
+pypdf==7.0.1
+gunicorn==27.0.0
 psycopg2-binary==2.9.13
 python-dotenv==1.2.4
 django-redis==7.0.0
 
 # Conformidade legal (app `legal`): render e sanitização das políticas.
-markdown==3.11.2
+markdown==3.11.3
 nh3==0.3.7
 
 # Tema do admin.
 django-unfold==0.110.1
-sentry-sdk==2.73.0
+sentry-sdk==2.74.0
 
 # O pip entra aqui como qualquer outra dependência, e não como ferramenta à
 # parte. Ele é o que o CD executa a cada deploy, e enquanto não estava
